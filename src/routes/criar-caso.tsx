@@ -9,6 +9,8 @@ import {
   Upload,
   Trash2,
   ChevronsUpDown,
+  ChevronDown,
+  ChevronUp,
   Eye,
   X,
   Search,
@@ -200,6 +202,53 @@ function generateIncorrectHypotheses(correctDiagnosis: string, count: number): s
   return Array.from({ length: count }, (_, i) => combined[i] ?? "");
 }
 
+// Perguntas típicas de anamnese, uma lista por categoria, usadas para
+// preencher automaticamente os campos de pergunta ainda vazios — as
+// respostas ficam em branco para o usuário descrever o caso específico.
+const anamneseTemplates: Record<string, string[]> = {
+  "Queixa principal": [
+    "Olá! No que posso te ajudar hoje?",
+    "Onde é a dor?",
+    "Há quanto tempo você sente isso?",
+    "Como você descreveria essa sensação?",
+  ],
+  "História da doença atual": [
+    "Quando os sintomas começaram?",
+    "Os sintomas pioraram ou melhoraram desde então?",
+    "Existe algo que piora ou alivia os sintomas?",
+    "Você já tentou algum tratamento para isso?",
+  ],
+  "Antecedentes pessoais e familiares": [
+    "Você tem alguma doença crônica diagnosticada?",
+    "Alguém da sua família já teve um quadro parecido?",
+    "Você já passou por alguma cirurgia?",
+    "Você tem alergia a algum medicamento?",
+  ],
+  "Hábitos de vida": [
+    "Você pratica atividade física com que frequência?",
+    "Você fuma ou consome bebida alcoólica?",
+    "Como é a sua alimentação no dia a dia?",
+    "Como está a sua qualidade de sono?",
+  ],
+};
+
+// Preenche apenas as perguntas vazias de cada categoria com o template
+// correspondente, respeitando a ordem das linhas já criadas pelo usuário.
+function generateAnamneseQuestions(
+  anamnese: Record<string, { question: string; answerType: string; customAnswer: string }[]>,
+): Record<string, { question: string; answerType: string; customAnswer: string }[]> {
+  const next: typeof anamnese = {};
+  Object.entries(anamnese).forEach(([category, items]) => {
+    const templates = anamneseTemplates[category] ?? [];
+    next[category] = items.map((item, i) =>
+      item.question.trim() === "" && templates[i]
+        ? { ...item, question: templates[i] }
+        : item,
+    );
+  });
+  return next;
+}
+
 type LibraryItem = {
   id: string;
   title: string;
@@ -219,7 +268,6 @@ type HipoteseCorreta = {
 
 type HipoteseIncorreta = {
   texto: string;
-  examesIncorretos: string[];
 };
 
 const emptyHipoteseCorreta = (): HipoteseCorreta => ({
@@ -230,8 +278,160 @@ const emptyHipoteseCorreta = (): HipoteseCorreta => ({
 
 const emptyHipoteseIncorreta = (): HipoteseIncorreta => ({
   texto: "",
-  examesIncorretos: [""],
 });
+
+type MedicamentoItem = {
+  nome: string;
+  dose: string;
+  via: string;
+  frequencia: string;
+  duracao: string;
+  orientacoes: string;
+};
+
+type ProcedimentoItem = {
+  nome: string;
+  descricao: string;
+};
+
+type PrescricaoData = {
+  medicamentos: MedicamentoItem[];
+  procedimentos: ProcedimentoItem[];
+  orientacoesGerais: string;
+  retorno: string;
+  ativarProcedimentos: boolean;
+  ativarOrientacoesGerais: boolean;
+  ativarRetorno: boolean;
+};
+
+const emptyMedicamento = (): MedicamentoItem => ({
+  nome: "",
+  dose: "",
+  via: "",
+  frequencia: "",
+  duracao: "",
+  orientacoes: "",
+});
+
+const emptyProcedimento = (): ProcedimentoItem => ({
+  nome: "",
+  descricao: "",
+});
+
+const emptyPrescricao = (): PrescricaoData => ({
+  medicamentos: [emptyMedicamento()],
+  procedimentos: [],
+  orientacoesGerais: "",
+  retorno: "",
+  ativarProcedimentos: false,
+  ativarOrientacoesGerais: false,
+  ativarRetorno: false,
+});
+
+const viasAdministracao = [
+  "Via oral",
+  "Intravenosa",
+  "Intramuscular",
+  "Subcutânea",
+  "Sublingual",
+  "Tópica",
+  "Inalatória",
+  "Retal",
+];
+
+// Distratores plausíveis para compor prescrições incorretas sem depender de
+// uma API externa: mesma lógica local usada em generateIncorrectHypotheses.
+const distractorMedicamentos: MedicamentoItem[] = [
+  {
+    nome: "Amoxicilina 500 mg",
+    dose: "1 comprimido",
+    via: "Via oral",
+    frequencia: "a cada 8 horas",
+    duracao: "por 7 dias",
+    orientacoes: "Administrar após alimentação.",
+  },
+  {
+    nome: "Ibuprofeno 600 mg",
+    dose: "1 comprimido",
+    via: "Via oral",
+    frequencia: "a cada 12 horas",
+    duracao: "por 5 dias",
+    orientacoes: "Não administrar em jejum.",
+  },
+  {
+    nome: "Prednisona 20 mg",
+    dose: "1 comprimido",
+    via: "Via oral",
+    frequencia: "1x ao dia",
+    duracao: "por 10 dias",
+    orientacoes: "Reduzir gradualmente ao suspender.",
+  },
+  {
+    nome: "Cetoprofeno 100 mg",
+    dose: "1 cápsula",
+    via: "Intramuscular",
+    frequencia: "a cada 12 horas",
+    duracao: "por 5 dias",
+    orientacoes: "Aplicar em ambiente hospitalar.",
+  },
+  {
+    nome: "Dexametasona 4 mg",
+    dose: "1 ampola",
+    via: "Intravenosa",
+    frequencia: "a cada 6 horas",
+    duracao: "por 3 dias",
+    orientacoes: "Monitorar glicemia durante o uso.",
+  },
+  {
+    nome: "Azitromicina 500 mg",
+    dose: "1 comprimido",
+    via: "Via oral",
+    frequencia: "1x ao dia",
+    duracao: "por 5 dias",
+    orientacoes: "Não ingerir com laticínios.",
+  },
+];
+
+const distractorProcedimentos: ProcedimentoItem[] = [
+  { nome: "Repouso absoluto", descricao: "Por 48 horas, sem justificativa clínica para o quadro." },
+  { nome: "Suspensão de atividades físicas", descricao: "Por 30 dias, sem relação com o diagnóstico." },
+];
+
+const distractorOrientacoes = [
+  "Retornar apenas se houver piora significativa.",
+  "Suspender atividades físicas por 30 dias.",
+  "Manter dieta livre, sem restrições específicas.",
+];
+
+const distractorRetornos = [
+  "Retorno em 30 dias",
+  "Sem necessidade de retorno",
+  "Retorno em 15 dias, se necessário",
+];
+
+// Mesma abordagem de generateIncorrectHypotheses: gera alternativas plausíveis
+// a partir da prescrição correta, embaralhando distratores locais.
+function generateIncorrectPrescriptions(correta: PrescricaoData, count: number): PrescricaoData[] {
+  const shuffle = <T,>(arr: T[]) => [...arr].sort(() => Math.random() - 0.5);
+  const meds = shuffle(distractorMedicamentos);
+  const procs = shuffle(distractorProcedimentos);
+  const orientacoes = shuffle(distractorOrientacoes);
+  const retornos = shuffle(distractorRetornos);
+  const medCount = Math.max(correta.medicamentos.length, 1);
+
+  return Array.from({ length: count }, (_, i) => ({
+    medicamentos: Array.from(
+      { length: medCount },
+      (_, j) => meds[(i + j) % meds.length],
+    ),
+    procedimentos: correta.ativarProcedimentos ? [procs[i % procs.length]] : [],
+    orientacoesGerais: orientacoes[i % orientacoes.length],
+    retorno: retornos[i % retornos.length],
+    ativarProcedimentos: correta.ativarProcedimentos,
+    ativarOrientacoesGerais: correta.ativarOrientacoesGerais,
+    ativarRetorno: correta.ativarRetorno,
+  }));
+}
 
 const libraryItems: LibraryItem[] = [
   {
@@ -327,7 +527,7 @@ const steps = [
   "Informações do caso",
   "Anamnese",
   "Exame físico",
-  "Diagnóstico e conduta",
+  "Diagnóstico e prescrição",
 ];
 
 function CriarCaso() {
@@ -363,14 +563,18 @@ function CriarCaso() {
       results?: string;
       wantsVisualMod?: "sim" | "nao" | "";
       visualModDescription?: string;
+      groupId?: string;
     }[],
+    examGroups: [
+      { id: "g-default", name: "Exames gerais" },
+    ] as { id: string; name: string }[],
     diagnostico: {
       correta: emptyHipoteseCorreta(),
       incorretas: [emptyHipoteseIncorreta(), emptyHipoteseIncorreta()] as HipoteseIncorreta[],
     },
-    conduta: {
-      correta: "",
-      incorretas: [""] as string[],
+    prescricao: {
+      correta: emptyPrescricao(),
+      incorretas: [emptyPrescricao(), emptyPrescricao()] as PrescricaoData[],
     },
   });
 
@@ -437,10 +641,52 @@ function CriarCaso() {
     });
   };
 
+  const [generatingAnamnese, setGeneratingAnamnese] = useState(false);
+  const handleGenerateAnamnese = () => {
+    setGeneratingAnamnese(true);
+    window.setTimeout(() => {
+      setForm((p) => ({ ...p, anamnese: generateAnamneseQuestions(p.anamnese) }));
+      setGeneratingAnamnese(false);
+    }, 500);
+  };
+
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [librarySearch, setLibrarySearch] = useState("");
   const [libraryPreviewId, setLibraryPreviewId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [activeGroupId, setActiveGroupId] = useState<string>("g-default");
+
+  const addExamGroup = () => {
+    const id = `g-${Date.now()}`;
+    setForm((prev) => ({
+      ...prev,
+      examGroups: [
+        ...prev.examGroups,
+        { id, name: `Novo grupamento ${prev.examGroups.length + 1}` },
+      ],
+    }));
+  };
+  const renameExamGroup = (id: string, name: string) => {
+    setForm((prev) => ({
+      ...prev,
+      examGroups: prev.examGroups.map((g) => (g.id === id ? { ...g, name } : g)),
+    }));
+  };
+  const removeExamGroup = (id: string) => {
+    setForm((prev) => ({
+      ...prev,
+      examGroups: prev.examGroups.filter((g) => g.id !== id),
+      attachments: prev.attachments.filter((a) => a.groupId !== id),
+    }));
+  };
+  const openUploadFor = (groupId: string) => {
+    setActiveGroupId(groupId);
+    fileInputRef.current?.click();
+  };
+  const openLibraryFor = (groupId: string) => {
+    setActiveGroupId(groupId);
+    setLibraryOpen(true);
+  };
 
   const addAttachment = (a: (typeof form.attachments)[number]) => {
     setForm((prev) =>
@@ -479,6 +725,7 @@ function CriarCaso() {
         results: "",
         wantsVisualMod: "",
         visualModDescription: "",
+        groupId: activeGroupId,
       });
     });
   };
@@ -549,33 +796,6 @@ function CriarCaso() {
       },
     }));
 
-  const updateIncorretaExame = (target: number, i: number, value: string) =>
-    setForm((p) => {
-      const incorretas = [...p.diagnostico.incorretas];
-      const arr = [...incorretas[target].examesIncorretos];
-      arr[i] = value;
-      incorretas[target] = { ...incorretas[target], examesIncorretos: arr };
-      return { ...p, diagnostico: { ...p.diagnostico, incorretas } };
-    });
-  const addIncorretaExame = (target: number) =>
-    setForm((p) => {
-      const incorretas = [...p.diagnostico.incorretas];
-      incorretas[target] = {
-        ...incorretas[target],
-        examesIncorretos: [...incorretas[target].examesIncorretos, ""],
-      };
-      return { ...p, diagnostico: { ...p.diagnostico, incorretas } };
-    });
-  const removeIncorretaExame = (target: number, i: number) =>
-    setForm((p) => {
-      const incorretas = [...p.diagnostico.incorretas];
-      incorretas[target] = {
-        ...incorretas[target],
-        examesIncorretos: incorretas[target].examesIncorretos.filter((_, idx) => idx !== i),
-      };
-      return { ...p, diagnostico: { ...p.diagnostico, incorretas } };
-    });
-
   const [generatingHipoteses, setGeneratingHipoteses] = useState(false);
   const handleGenerateIncorrectHypotheses = () => {
     setGeneratingHipoteses(true);
@@ -598,27 +818,116 @@ function CriarCaso() {
     }, 500);
   };
 
-  const updateCondutaCorreta = (value: string) =>
-    setForm((p) => ({ ...p, conduta: { ...p.conduta, correta: value } }));
-  const updateCondutaIncorreta = (i: number, value: string) =>
+  const [presExpanded, setPresExpanded] = useState<Record<string, boolean>>({
+    correta: true,
+    "0": false,
+    "1": false,
+  });
+
+  type PrescricaoSlot = "correta" | number; // number = índice em incorretas
+  const getPrescricao = (slot: PrescricaoSlot): PrescricaoData =>
+    slot === "correta" ? form.prescricao.correta : form.prescricao.incorretas[slot];
+
+  const setPrescricao = (slot: PrescricaoSlot, next: PrescricaoData) =>
     setForm((p) => {
-      const arr = [...p.conduta.incorretas];
-      arr[i] = value;
-      return { ...p, conduta: { ...p.conduta, incorretas: arr } };
+      if (slot === "correta") {
+        return { ...p, prescricao: { ...p.prescricao, correta: next } };
+      }
+      const arr = [...p.prescricao.incorretas];
+      arr[slot] = next;
+      return { ...p, prescricao: { ...p.prescricao, incorretas: arr } };
     });
-  const addCondutaIncorreta = () =>
+
+  const updateMed = (
+    slot: PrescricaoSlot,
+    idx: number,
+    key: keyof MedicamentoItem,
+    value: string,
+  ) => {
+    const pres = getPrescricao(slot);
+    const meds = pres.medicamentos.map((m, i) => (i === idx ? { ...m, [key]: value } : m));
+    setPrescricao(slot, { ...pres, medicamentos: meds });
+  };
+  const addMed = (slot: PrescricaoSlot) => {
+    const pres = getPrescricao(slot);
+    setPrescricao(slot, { ...pres, medicamentos: [...pres.medicamentos, emptyMedicamento()] });
+  };
+  const removeMed = (slot: PrescricaoSlot, idx: number) => {
+    const pres = getPrescricao(slot);
+    setPrescricao(slot, {
+      ...pres,
+      medicamentos: pres.medicamentos.filter((_, i) => i !== idx),
+    });
+  };
+
+  const updateProc = (
+    slot: PrescricaoSlot,
+    idx: number,
+    key: keyof ProcedimentoItem,
+    value: string,
+  ) => {
+    const pres = getPrescricao(slot);
+    const procs = pres.procedimentos.map((pr, i) => (i === idx ? { ...pr, [key]: value } : pr));
+    setPrescricao(slot, { ...pres, procedimentos: procs });
+  };
+  const addProc = (slot: PrescricaoSlot) => {
+    const pres = getPrescricao(slot);
+    setPrescricao(slot, { ...pres, procedimentos: [...pres.procedimentos, emptyProcedimento()] });
+  };
+  const removeProc = (slot: PrescricaoSlot, idx: number) => {
+    const pres = getPrescricao(slot);
+    setPrescricao(slot, {
+      ...pres,
+      procedimentos: pres.procedimentos.filter((_, i) => i !== idx),
+    });
+  };
+
+  const updatePresField = (
+    slot: PrescricaoSlot,
+    key: "orientacoesGerais" | "retorno",
+    value: string,
+  ) => setPrescricao(slot, { ...getPrescricao(slot), [key]: value });
+
+  const togglePresFlag = (
+    slot: PrescricaoSlot,
+    key: "ativarProcedimentos" | "ativarOrientacoesGerais" | "ativarRetorno",
+  ) => {
+    const pres = getPrescricao(slot);
+    const next = { ...pres, [key]: !pres[key] };
+    if (key === "ativarProcedimentos" && !pres.ativarProcedimentos && pres.procedimentos.length === 0) {
+      next.procedimentos = [emptyProcedimento()];
+    }
+    setPrescricao(slot, next);
+  };
+
+  const addPrescricaoIncorreta = () =>
     setForm((p) => ({
       ...p,
-      conduta: { ...p.conduta, incorretas: [...p.conduta.incorretas, ""] },
+      prescricao: { ...p.prescricao, incorretas: [...p.prescricao.incorretas, emptyPrescricao()] },
     }));
-  const removeCondutaIncorreta = (i: number) =>
+  const removePrescricaoIncorreta = (i: number) =>
     setForm((p) => ({
       ...p,
-      conduta: {
-        ...p.conduta,
-        incorretas: p.conduta.incorretas.filter((_, idx) => idx !== i),
+      prescricao: {
+        ...p.prescricao,
+        incorretas: p.prescricao.incorretas.filter((_, idx) => idx !== i),
       },
     }));
+
+  const [generatingWrongIdx, setGeneratingWrongIdx] = useState<number | null>(null);
+  const handleGenerateWrongPrescription = (i: number) => {
+    setGeneratingWrongIdx(i);
+    window.setTimeout(() => {
+      setForm((p) => {
+        const [generated] = generateIncorrectPrescriptions(p.prescricao.correta, 1);
+        const arr = [...p.prescricao.incorretas];
+        arr[i] = generated;
+        return { ...p, prescricao: { ...p.prescricao, incorretas: arr } };
+      });
+      setPresExpanded((prev) => ({ ...prev, [String(i)]: true }));
+      setGeneratingWrongIdx(null);
+    }, 500);
+  };
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -849,15 +1158,30 @@ function CriarCaso() {
 
           {current === 2 && (
             <section className="space-y-8">
-              <div>
-                <h2 className="text-lg font-semibold text-slate-800">
-                  Anamnese
-                </h2>
-                <p className="text-sm text-slate-500 mt-1">
-                  Aqui você pode inserir as informações básicas sobre as
-                  perguntas e respostas que o paciente vai dar durante a
-                  anamnese.
-                </p>
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <h2 className="text-lg font-semibold text-slate-800">
+                    Anamnese
+                  </h2>
+                  <p className="text-sm text-slate-500 mt-1">
+                    Aqui você pode inserir as informações básicas sobre as
+                    perguntas e respostas que o paciente vai dar durante a
+                    anamnese.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleGenerateAnamnese}
+                  disabled={generatingAnamnese}
+                  className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-full border border-[var(--brand)]/30 bg-sky-50 text-xs font-semibold text-[var(--brand)] hover:bg-sky-100 transition-colors disabled:opacity-60 disabled:cursor-wait"
+                >
+                  <Sparkles
+                    className={cn("h-3.5 w-3.5", generatingAnamnese && "animate-pulse")}
+                  />
+                  {generatingAnamnese
+                    ? "Gerando com IA..."
+                    : "Gerar perguntas com IA"}
+                </button>
               </div>
 
               {Object.entries(form.anamnese).map(([category, items]) => (
@@ -962,168 +1286,214 @@ function CriarCaso() {
                 </p>
               </div>
 
-              <div className="border-2 border-dashed border-slate-200 bg-slate-50/60 rounded-lg p-5 space-y-4">
-                <div className="flex flex-wrap gap-3">
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="inline-flex items-center gap-2 h-11 px-4 rounded-lg border border-slate-200 bg-white text-sm font-medium text-slate-700 hover:border-[var(--brand)] hover:text-[var(--brand)] transition-colors"
-                  >
-                    <Upload className="h-4 w-4" />
-                    Fazer upload do computador
-                  </button>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    multiple
-                    className="hidden"
-                    onChange={(e) => {
-                      handleUploadFiles(e.target.files);
-                      e.target.value = "";
-                    }}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setLibraryOpen(true)}
-                    className="inline-flex items-center gap-2 h-11 px-4 rounded-lg border border-slate-200 bg-white text-sm font-medium text-slate-700 hover:border-[var(--brand)] hover:text-[var(--brand)] transition-colors"
-                  >
-                    <FileText className="h-4 w-4" />
-                    Selecionar da biblioteca
-                  </button>
-                </div>
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                className="hidden"
+                onChange={(e) => {
+                  handleUploadFiles(e.target.files);
+                  e.target.value = "";
+                }}
+              />
 
-                {form.attachments.length > 0 && (
-                  <div className="space-y-4">
-                    {form.attachments.map((a) => (
-                      <div
-                        key={a.id}
-                        className="rounded-lg border border-slate-200 bg-white p-4 space-y-4"
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="flex h-9 w-9 items-center justify-center rounded-md bg-sky-50 text-[var(--brand)]">
-                            {a.kind === "Imagem" ? (
-                              <ImageIcon className="h-4 w-4" />
-                            ) : (
-                              <FileText className="h-4 w-4" />
-                            )}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="text-sm font-medium text-slate-800 truncate">
-                              {a.title}
-                            </div>
-                            <div className="text-xs text-slate-500">
-                              {a.kind} · {a.source}
-                            </div>
-                          </div>
+              <div className="space-y-6">
+                <button
+                  type="button"
+                  onClick={addExamGroup}
+                  className="w-full inline-flex items-center justify-center gap-2 h-11 rounded-lg border border-dashed border-slate-300 text-sm font-medium text-slate-600 hover:border-[var(--brand)] hover:text-[var(--brand)] transition-colors"
+                >
+                  <Plus className="h-4 w-4" />
+                  Criar grupamento de exames
+                </button>
+
+                {form.examGroups.map((group) => {
+                  const items = form.attachments.filter(
+                    (a) => (a.groupId ?? "g-default") === group.id,
+                  );
+                  return (
+                    <div
+                      key={group.id}
+                      className="rounded-xl border border-slate-200 bg-white overflow-hidden"
+                    >
+                      <div className="flex items-center gap-3 px-5 py-3 border-b border-slate-100 bg-slate-50/60">
+                        <input
+                          value={group.name}
+                          onChange={(e) => renameExamGroup(group.id, e.target.value)}
+                          placeholder="Nome do grupamento (ex.: Sinais vitais)"
+                          className="flex-1 bg-transparent text-sm font-semibold text-slate-800 focus:outline-none placeholder:font-normal placeholder:text-slate-400"
+                        />
+                        <span className="text-xs text-slate-500">
+                          {items.length} {items.length === 1 ? "exame" : "exames"}
+                        </span>
+                        {form.examGroups.length > 1 && (
                           <button
                             type="button"
-                            onClick={() => removeAttachment(a.id)}
+                            onClick={() => removeExamGroup(group.id)}
                             className="inline-flex h-8 w-8 items-center justify-center rounded text-slate-400 hover:text-red-600"
-                            aria-label="Remover anexo"
+                            aria-label="Remover grupamento"
                           >
-                            <X className="h-4 w-4" />
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        )}
+                      </div>
+
+                      <div className="p-5 space-y-4">
+                        <div className="flex flex-wrap gap-3">
+                          <button
+                            type="button"
+                            onClick={() => openUploadFor(group.id)}
+                            className="inline-flex items-center gap-2 h-10 px-4 rounded-lg border border-slate-200 bg-white text-sm font-medium text-slate-700 hover:border-[var(--brand)] hover:text-[var(--brand)] transition-colors"
+                          >
+                            <Upload className="h-4 w-4" />
+                            Fazer upload
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => openLibraryFor(group.id)}
+                            className="inline-flex items-center gap-2 h-10 px-4 rounded-lg border border-slate-200 bg-white text-sm font-medium text-slate-700 hover:border-[var(--brand)] hover:text-[var(--brand)] transition-colors"
+                          >
+                            <FileText className="h-4 w-4" />
+                            Selecionar da biblioteca
                           </button>
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                          <Field label="Tipo de exame" required>
-                            <select
-                              value={a.examType ?? ""}
-                              onChange={(e) =>
-                                updateAttachment(a.id, { examType: e.target.value })
-                              }
-                              className="input"
-                            >
-                              <option value="">Selecione o tipo</option>
-                              <option value="Radiologia">Radiologia</option>
-                              <option value="Cardiovascular">Cardiovascular</option>
-                              <option value="Laboratório">Laboratório</option>
-                              <option value="Ultrassonografia">Ultrassonografia</option>
-                              <option value="Dermatológico">Dermatológico</option>
-                              <option value="Vídeo">Vídeo</option>
-                              <option value="Outro">Outro</option>
-                            </select>
-                          </Field>
-                          <Field label="Nome do exame" required>
-                            <input
-                              type="text"
-                              value={a.examName ?? ""}
-                              onChange={(e) =>
-                                updateAttachment(a.id, { examName: e.target.value })
-                              }
-                              placeholder="Ex.: Raio-X de tórax"
-                              className="input"
-                            />
-                          </Field>
-                        </div>
+                        {items.length > 0 && (
+                          <div className="space-y-4">
+                            {items.map((a) => (
+                              <div
+                                key={a.id}
+                                className="rounded-lg border border-slate-200 bg-slate-50/40 p-4 space-y-4"
+                              >
+                                <div className="flex items-center gap-3">
+                                  <div className="flex h-9 w-9 items-center justify-center rounded-md bg-sky-50 text-[var(--brand)]">
+                                    {a.kind === "Imagem" ? (
+                                      <ImageIcon className="h-4 w-4" />
+                                    ) : (
+                                      <FileText className="h-4 w-4" />
+                                    )}
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <div className="text-sm font-medium text-slate-800 truncate">
+                                      {a.title}
+                                    </div>
+                                    <div className="text-xs text-slate-500">
+                                      {a.kind} · {a.source}
+                                    </div>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => removeAttachment(a.id)}
+                                    className="inline-flex h-8 w-8 items-center justify-center rounded text-slate-400 hover:text-red-600"
+                                    aria-label="Remover anexo"
+                                  >
+                                    <X className="h-4 w-4" />
+                                  </button>
+                                </div>
 
-                        <Field label="Resultados e achados encontrados">
-                          <textarea
-                            value={a.results ?? ""}
-                            onChange={(e) =>
-                              updateAttachment(a.id, { results: e.target.value })
-                            }
-                            rows={3}
-                            placeholder="Descreva os principais achados do exame (medidas, alterações, observações do laudo)."
-                            className="input resize-y"
-                          />
-                        </Field>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                  <Field label="Tipo de exame" required>
+                                    <select
+                                      value={a.examType ?? ""}
+                                      onChange={(e) =>
+                                        updateAttachment(a.id, { examType: e.target.value })
+                                      }
+                                      className="input"
+                                    >
+                                      <option value="">Selecione o tipo</option>
+                                      <option value="Radiologia">Radiologia</option>
+                                      <option value="Cardiovascular">Cardiovascular</option>
+                                      <option value="Laboratório">Laboratório</option>
+                                      <option value="Ultrassonografia">Ultrassonografia</option>
+                                      <option value="Dermatológico">Dermatológico</option>
+                                      <option value="Vídeo">Vídeo</option>
+                                      <option value="Outro">Outro</option>
+                                    </select>
+                                  </Field>
+                                  <Field label="Nome do exame" required>
+                                    <input
+                                      type="text"
+                                      value={a.examName ?? ""}
+                                      onChange={(e) =>
+                                        updateAttachment(a.id, { examName: e.target.value })
+                                      }
+                                      placeholder="Ex.: Raio-X de tórax"
+                                      className="input"
+                                    />
+                                  </Field>
+                                </div>
 
-                        <div>
-                          <span className="block text-sm font-medium text-slate-700 mb-1.5">
-                            Deseja modificar algo visualmente neste exame?
-                          </span>
-                          <div className="flex items-center gap-2">
-                            {[
-                              { value: "sim", label: "Sim" },
-                              { value: "nao", label: "Não" },
-                            ].map((opt) => {
-                              const active = a.wantsVisualMod === opt.value;
-                              return (
-                                <button
-                                  key={opt.value}
-                                  type="button"
-                                  onClick={() =>
-                                    updateAttachment(a.id, {
-                                      wantsVisualMod: opt.value as "sim" | "nao",
-                                    })
-                                  }
-                                  className={`h-9 px-4 rounded-full text-sm border transition-colors ${
-                                    active
-                                      ? "border-[var(--brand)] bg-sky-50 text-[var(--brand)]"
-                                      : "border-slate-200 text-slate-600 hover:border-[var(--brand)] hover:text-[var(--brand)]"
-                                  }`}
-                                >
-                                  {opt.label}
-                                </button>
-                              );
-                            })}
+                                <Field label="Resultados e achados encontrados">
+                                  <textarea
+                                    value={a.results ?? ""}
+                                    onChange={(e) =>
+                                      updateAttachment(a.id, { results: e.target.value })
+                                    }
+                                    rows={3}
+                                    placeholder="Descreva os principais achados do exame (medidas, alterações, observações do laudo)."
+                                    className="input resize-y"
+                                  />
+                                </Field>
+
+                                <div>
+                                  <span className="block text-sm font-medium text-slate-700 mb-1.5">
+                                    Deseja modificar algo visualmente neste exame?
+                                  </span>
+                                  <div className="flex items-center gap-2">
+                                    {[
+                                      { value: "sim", label: "Sim" },
+                                      { value: "nao", label: "Não" },
+                                    ].map((opt) => {
+                                      const active = a.wantsVisualMod === opt.value;
+                                      return (
+                                        <button
+                                          key={opt.value}
+                                          type="button"
+                                          onClick={() =>
+                                            updateAttachment(a.id, {
+                                              wantsVisualMod: opt.value as "sim" | "nao",
+                                            })
+                                          }
+                                          className={`h-9 px-4 rounded-full text-sm border transition-colors ${
+                                            active
+                                              ? "border-[var(--brand)] bg-sky-50 text-[var(--brand)]"
+                                              : "border-slate-200 text-slate-600 hover:border-[var(--brand)] hover:text-[var(--brand)]"
+                                          }`}
+                                        >
+                                          {opt.label}
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                  {a.wantsVisualMod === "sim" && (
+                                    <div className="mt-3">
+                                      <textarea
+                                        value={a.visualModDescription ?? ""}
+                                        onChange={(e) =>
+                                          updateAttachment(a.id, {
+                                            visualModDescription: e.target.value,
+                                          })
+                                        }
+                                        rows={3}
+                                        placeholder="Descreva as modificações visuais desejadas. Vídeos serão adaptados às características físicas da persona selecionada."
+                                        className="input resize-y"
+                                      />
+                                      <p className="mt-1.5 text-xs text-slate-500">
+                                        Dica: vídeos anexados são automaticamente ajustados
+                                        para refletir as características físicas da persona
+                                        escolhida no início do caso.
+                                      </p>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
                           </div>
-                          {a.wantsVisualMod === "sim" && (
-                            <div className="mt-3">
-                              <textarea
-                                value={a.visualModDescription ?? ""}
-                                onChange={(e) =>
-                                  updateAttachment(a.id, {
-                                    visualModDescription: e.target.value,
-                                  })
-                                }
-                                rows={3}
-                                placeholder="Descreva as modificações visuais desejadas. Vídeos serão adaptados às características físicas da persona selecionada."
-                                className="input resize-y"
-                              />
-                              <p className="mt-1.5 text-xs text-slate-500">
-                                Dica: vídeos anexados são automaticamente ajustados
-                                para refletir as características físicas da persona
-                                escolhida no início do caso.
-                              </p>
-                            </div>
-                          )}
-                        </div>
+                        )}
                       </div>
-                    ))}
-                  </div>
-                )}
+                    </div>
+                  );
+                })}
               </div>
 
               {libraryOpen && (
@@ -1146,6 +1516,7 @@ function CriarCaso() {
                       results: "",
                       wantsVisualMod: "",
                       visualModDescription: "",
+                      groupId: activeGroupId,
                     })
                   }
                   onClose={() => setLibraryOpen(false)}
@@ -1158,11 +1529,11 @@ function CriarCaso() {
             <section className="space-y-8">
               <div>
                 <h2 className="text-lg font-semibold text-slate-800">
-                  Diagnóstico e conduta
+                  Diagnóstico e prescrição
                 </h2>
                 <p className="text-sm text-slate-500 mt-1">
                   Defina a hipótese diagnóstica correta, os exames a serem
-                  solicitados e a conduta esperada. Adicione alternativas
+                  solicitados e a prescrição esperada. Adicione alternativas
                   incorretas correlacionadas ao caso para desafiar o aluno.
                 </p>
               </div>
@@ -1228,12 +1599,6 @@ function CriarCaso() {
                           ? () => removeDiagIncorreta(i)
                           : undefined
                       }
-                      examesIncorretos={{
-                        values: hip.examesIncorretos,
-                        onChange: (ii, v) => updateIncorretaExame(i, ii, v),
-                        onAdd: () => addIncorretaExame(i),
-                        onRemove: (ii) => removeIncorretaExame(i, ii),
-                      }}
                     />
                   ))}
                 </div>
@@ -1248,11 +1613,18 @@ function CriarCaso() {
                 </button>
               </div>
 
-              {/* Conduta */}
-              <div className="border border-slate-200 rounded-lg p-5 space-y-4">
-                <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-700">
-                  Conduta
-                </h3>
+              {/* Prescrição */}
+              <div className="border border-slate-200 rounded-lg p-5 space-y-6">
+                <div>
+                  <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-700">
+                    Prescrição
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Defina a prescrição correta e as prescrições incorretas.
+                    Você pode gerar cada alternativa incorreta com IA a partir
+                    da correta.
+                  </p>
+                </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-slate-50 border border-slate-100 rounded-md p-4">
                   <div>
@@ -1273,10 +1645,10 @@ function CriarCaso() {
                   </div>
                   <div>
                     <span className="block text-xs font-medium text-slate-500 uppercase tracking-wide">
-                      Gênero
+                      Peso
                     </span>
-                    <span className="block text-sm text-slate-800 mt-1 capitalize">
-                      {form.personaGender || "—"}
+                    <span className="block text-sm text-slate-800 mt-1">
+                      {form.personaWeight ? `${form.personaWeight} kg` : "—"}
                     </span>
                   </div>
                 </div>
@@ -1284,51 +1656,66 @@ function CriarCaso() {
                   Dados carregados da primeira etapa.
                 </p>
 
-                <Field label="Prescrição correta" required>
-                  <textarea
-                    value={form.conduta.correta}
-                    onChange={(e) => updateCondutaCorreta(e.target.value)}
-                    rows={5}
-                    placeholder="Descreva a conduta e a prescrição correta para o caso"
-                    className="input resize-none"
-                  />
-                </Field>
+                <PrescricaoEditor
+                  slot="correta"
+                  data={form.prescricao.correta}
+                  title="Prescrição correta"
+                  badge="Correta"
+                  badgeClass="bg-emerald-50 text-emerald-700 border-emerald-200"
+                  expanded={presExpanded["correta"] ?? false}
+                  onToggleExpanded={() =>
+                    setPresExpanded((prev) => ({ ...prev, correta: !prev.correta }))
+                  }
+                  onUpdateMed={updateMed}
+                  onAddMed={addMed}
+                  onRemoveMed={removeMed}
+                  onUpdateProc={updateProc}
+                  onAddProc={addProc}
+                  onRemoveProc={removeProc}
+                  onUpdateField={updatePresField}
+                  onToggleFlag={togglePresFlag}
+                />
 
-                <div className="space-y-3">
-                  <span className="block text-sm font-medium text-slate-700">
-                    Condutas incorretas
-                  </span>
-                  {form.conduta.incorretas.map((v, i) => (
-                    <div key={i} className="flex gap-2">
-                      <textarea
-                        value={v}
-                        onChange={(e) =>
-                          updateCondutaIncorreta(i, e.target.value)
-                        }
-                        rows={2}
-                        placeholder={`Ex.: Alternativa incorreta ${i + 1}`}
-                        className="input resize-none"
-                      />
-                      {form.conduta.incorretas.length > 1 && (
-                        <button
-                          type="button"
-                          onClick={() => removeCondutaIncorreta(i)}
-                          className="inline-flex items-center justify-center h-11 w-11 rounded border border-slate-200 text-slate-500 hover:text-red-600 self-start"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      )}
-                    </div>
+                <div className="space-y-4">
+                  {form.prescricao.incorretas.map((pres, i) => (
+                    <PrescricaoEditor
+                      key={i}
+                      slot={i}
+                      data={pres}
+                      title={`Prescrição incorreta ${i + 1}`}
+                      badge="Incorreta"
+                      badgeClass="bg-rose-50 text-rose-700 border-rose-200"
+                      expanded={presExpanded[String(i)] ?? false}
+                      onToggleExpanded={() =>
+                        setPresExpanded((prev) => ({ ...prev, [String(i)]: !prev[String(i)] }))
+                      }
+                      onRemove={
+                        form.prescricao.incorretas.length > 1
+                          ? () => removePrescricaoIncorreta(i)
+                          : undefined
+                      }
+                      onAutoGenerate={() => handleGenerateWrongPrescription(i)}
+                      generating={generatingWrongIdx === i}
+                      onUpdateMed={updateMed}
+                      onAddMed={addMed}
+                      onRemoveMed={removeMed}
+                      onUpdateProc={updateProc}
+                      onAddProc={addProc}
+                      onRemoveProc={removeProc}
+                      onUpdateField={updatePresField}
+                      onToggleFlag={togglePresFlag}
+                    />
                   ))}
-                  <button
-                    type="button"
-                    onClick={addCondutaIncorreta}
-                    className="inline-flex items-center gap-2 h-9 px-4 rounded border border-[var(--brand)] text-sm font-medium text-[var(--brand)] hover:bg-[var(--brand)] hover:text-white transition-colors"
-                  >
-                    <Plus className="h-4 w-4" />
-                    Adicionar conduta incorreta
-                  </button>
                 </div>
+
+                <button
+                  type="button"
+                  onClick={addPrescricaoIncorreta}
+                  className="inline-flex items-center gap-2 h-9 px-4 rounded border border-[var(--brand)] text-sm font-medium text-[var(--brand)] hover:bg-[var(--brand)] hover:text-white transition-colors"
+                >
+                  <Plus className="h-4 w-4" />
+                  Adicionar prescrição incorreta
+                </button>
               </div>
             </section>
           )}
@@ -1566,10 +1953,10 @@ function HipoteseCard({
   accent?: boolean;
   onChangeTexto: (value: string) => void;
   onRemoveHipotese?: () => void;
-  // Só a hipótese correta recebe essa prop — hipóteses incorretas não têm
-  // "exame correto" (não existe exame que confirme um diagnóstico errado).
+  // Só a hipótese correta recebe exames: não existe exame que confirme ou
+  // descarte um diagnóstico que não é o do caso.
   examesCorretos?: ExamListProps;
-  examesIncorretos: ExamListProps;
+  examesIncorretos?: ExamListProps;
 }) {
   return (
     <div
@@ -1602,25 +1989,350 @@ function HipoteseCard({
         )}
       </div>
 
-      <div className="pl-4 border-l-2 border-slate-200 space-y-4">
-        <span className="block text-xs font-semibold uppercase tracking-wide text-slate-400">
-          Exames vinculados a esta hipótese
-        </span>
-        {examesCorretos && (
-          <ExamListEditor
-            label="Exames corretos"
-            placeholder="Ex.: ECG de 12 derivações"
-            addLabel="Adicionar exame correto"
-            {...examesCorretos}
-          />
-        )}
-        <ExamListEditor
-          label="Exames incorretos"
-          placeholder="Ex.: Alternativa não indicada"
-          addLabel="Adicionar exame incorreto"
-          {...examesIncorretos}
-        />
+      {(examesCorretos || examesIncorretos) && (
+        <div className="pl-4 border-l-2 border-slate-200 space-y-4">
+          <span className="block text-xs font-semibold uppercase tracking-wide text-slate-400">
+            Exames vinculados a esta hipótese
+          </span>
+          {examesCorretos && (
+            <ExamListEditor
+              label="Exames corretos"
+              placeholder="Ex.: ECG de 12 derivações"
+              addLabel="Adicionar exame correto"
+              {...examesCorretos}
+            />
+          )}
+          {examesIncorretos && (
+            <ExamListEditor
+              label="Exames incorretos"
+              placeholder="Ex.: Alternativa não indicada"
+              addLabel="Adicionar exame incorreto"
+              {...examesIncorretos}
+            />
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+type PrescricaoSlotProp = "correta" | number;
+
+function PrescricaoEditor({
+  slot,
+  data,
+  title,
+  badge,
+  badgeClass,
+  expanded,
+  onToggleExpanded,
+  onRemove,
+  onAutoGenerate,
+  generating,
+  onUpdateMed,
+  onAddMed,
+  onRemoveMed,
+  onUpdateProc,
+  onAddProc,
+  onRemoveProc,
+  onUpdateField,
+  onToggleFlag,
+}: {
+  slot: PrescricaoSlotProp;
+  data: PrescricaoData;
+  title: string;
+  badge: string;
+  badgeClass: string;
+  expanded: boolean;
+  onToggleExpanded: () => void;
+  onRemove?: () => void;
+  onAutoGenerate?: () => void;
+  generating?: boolean;
+  onUpdateMed: (slot: PrescricaoSlotProp, idx: number, key: keyof MedicamentoItem, value: string) => void;
+  onAddMed: (slot: PrescricaoSlotProp) => void;
+  onRemoveMed: (slot: PrescricaoSlotProp, idx: number) => void;
+  onUpdateProc: (slot: PrescricaoSlotProp, idx: number, key: keyof ProcedimentoItem, value: string) => void;
+  onAddProc: (slot: PrescricaoSlotProp) => void;
+  onRemoveProc: (slot: PrescricaoSlotProp, idx: number) => void;
+  onUpdateField: (slot: PrescricaoSlotProp, key: "orientacoesGerais" | "retorno", value: string) => void;
+  onToggleFlag: (
+    slot: PrescricaoSlotProp,
+    key: "ativarProcedimentos" | "ativarOrientacoesGerais" | "ativarRetorno",
+  ) => void;
+}) {
+  return (
+    <div className="border border-slate-200 rounded-lg p-4 bg-white">
+      <div
+        className="flex items-center justify-between gap-3 flex-wrap cursor-pointer -m-4 p-4 hover:bg-slate-50/60 transition-colors"
+        onClick={onToggleExpanded}
+      >
+        <div className="flex items-center gap-2">
+          <span
+            className={`inline-flex items-center h-6 px-2 rounded-full border text-[11px] font-medium ${badgeClass}`}
+          >
+            {badge}
+          </span>
+          <h4 className="text-sm font-semibold text-slate-800">{title}</h4>
+        </div>
+        <div className="flex items-center gap-2">
+          {onAutoGenerate && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onAutoGenerate();
+              }}
+              disabled={generating}
+              className="inline-flex items-center gap-2 h-8 px-3 rounded border border-[var(--brand)] text-xs font-medium text-[var(--brand)] hover:bg-[var(--brand)] hover:text-white transition-colors disabled:opacity-60 disabled:cursor-wait"
+            >
+              <Sparkles className={cn("h-3.5 w-3.5", generating && "animate-pulse")} />
+              {generating ? "Gerando com IA..." : "Gerar automaticamente"}
+            </button>
+          )}
+          {onRemove && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onRemove();
+              }}
+              aria-label="Remover prescrição"
+              className="inline-flex h-8 w-8 items-center justify-center rounded text-slate-400 hover:text-red-600"
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+          )}
+          <span className="inline-flex items-center justify-center h-8 w-8 rounded text-slate-400">
+            {expanded ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+          </span>
+        </div>
       </div>
+
+      {expanded && (
+        <div className="mt-5 space-y-5">
+          <div className="space-y-3">
+            <span className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Medicamentos
+            </span>
+            {data.medicamentos.map((m, i) => (
+              <div
+                key={i}
+                className="rounded-md border border-slate-200 p-3 space-y-3 bg-slate-50/60"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-medium text-slate-500">
+                    Medicamento {i + 1}
+                  </span>
+                  {data.medicamentos.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => onRemoveMed(slot, i)}
+                      className="text-slate-400 hover:text-red-600"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <Field label="Nome do medicamento" required>
+                    <input
+                      value={m.nome}
+                      onChange={(e) => onUpdateMed(slot, i, "nome", e.target.value)}
+                      placeholder="Ex.: Dipirona 500 mg"
+                      className="input"
+                    />
+                  </Field>
+                  <Field label="Dose">
+                    <input
+                      value={m.dose}
+                      onChange={(e) => onUpdateMed(slot, i, "dose", e.target.value)}
+                      placeholder="Ex.: 1 comprimido"
+                      className="input"
+                    />
+                  </Field>
+                  <Field label="Via de administração">
+                    <select
+                      value={m.via}
+                      onChange={(e) => onUpdateMed(slot, i, "via", e.target.value)}
+                      className="input"
+                    >
+                      <option value="">Selecione...</option>
+                      {viasAdministracao.map((v) => (
+                        <option key={v} value={v}>
+                          {v}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+                  <Field label="Frequência">
+                    <input
+                      value={m.frequencia}
+                      onChange={(e) => onUpdateMed(slot, i, "frequencia", e.target.value)}
+                      placeholder="Ex.: a cada 6 horas"
+                      className="input"
+                    />
+                  </Field>
+                  <Field label="Duração">
+                    <input
+                      value={m.duracao}
+                      onChange={(e) => onUpdateMed(slot, i, "duracao", e.target.value)}
+                      placeholder="Ex.: por 7 dias"
+                      className="input"
+                    />
+                  </Field>
+                  <Field label="Orientações específicas">
+                    <input
+                      value={m.orientacoes}
+                      onChange={(e) => onUpdateMed(slot, i, "orientacoes", e.target.value)}
+                      placeholder="Ex.: administrar após alimentação"
+                      className="input"
+                    />
+                  </Field>
+                </div>
+              </div>
+            ))}
+            <button
+              type="button"
+              onClick={() => onAddMed(slot)}
+              className="inline-flex items-center gap-2 h-9 px-3 rounded border border-slate-200 text-xs font-medium text-slate-600 hover:border-[var(--brand)] hover:text-[var(--brand)]"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Adicionar medicamento
+            </button>
+          </div>
+
+          <div className="rounded-md border border-slate-200 bg-slate-50/40 overflow-hidden">
+            <label className="flex items-center justify-between gap-3 px-4 py-3 cursor-pointer">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold uppercase tracking-wide text-slate-700">
+                  Procedimentos / condutas não medicamentosas
+                </span>
+                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-200 text-slate-600 font-medium">
+                  opcional
+                </span>
+              </div>
+              <input
+                type="checkbox"
+                checked={data.ativarProcedimentos}
+                onChange={() => onToggleFlag(slot, "ativarProcedimentos")}
+                className="h-4 w-4 accent-[var(--brand)] cursor-pointer"
+              />
+            </label>
+            {data.ativarProcedimentos && (
+              <div className="px-4 pb-4 space-y-3 border-t border-slate-100 pt-3">
+                {data.procedimentos.length === 0 && (
+                  <p className="text-xs text-slate-400">Nenhum procedimento adicionado.</p>
+                )}
+                {data.procedimentos.map((p, i) => (
+                  <div key={i} className="rounded-md border border-slate-200 p-3 space-y-3 bg-white">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-medium text-slate-500">
+                        Procedimento {i + 1}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => onRemoveProc(slot, i)}
+                        className="text-slate-400 hover:text-red-600"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <Field label="Nome do procedimento">
+                        <input
+                          value={p.nome}
+                          onChange={(e) => onUpdateProc(slot, i, "nome", e.target.value)}
+                          placeholder="Ex.: Curativo com soro fisiológico"
+                          className="input"
+                        />
+                      </Field>
+                      <Field label="Descrição / justificativa">
+                        <input
+                          value={p.descricao}
+                          onChange={(e) => onUpdateProc(slot, i, "descricao", e.target.value)}
+                          placeholder="Ex.: Realizar a cada 24h"
+                          className="input"
+                        />
+                      </Field>
+                    </div>
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => onAddProc(slot)}
+                  className="inline-flex items-center gap-2 h-9 px-3 rounded border border-slate-200 text-xs font-medium text-slate-600 hover:border-[var(--brand)] hover:text-[var(--brand)]"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  Adicionar procedimento
+                </button>
+              </div>
+            )}
+          </div>
+
+          <div className="rounded-md border border-slate-200 bg-slate-50/40 overflow-hidden">
+            <label className="flex items-center justify-between gap-3 px-4 py-3 cursor-pointer">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold uppercase tracking-wide text-slate-700">
+                  Orientações gerais ao paciente
+                </span>
+                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-200 text-slate-600 font-medium">
+                  opcional
+                </span>
+              </div>
+              <input
+                type="checkbox"
+                checked={data.ativarOrientacoesGerais}
+                onChange={() => onToggleFlag(slot, "ativarOrientacoesGerais")}
+                className="h-4 w-4 accent-[var(--brand)] cursor-pointer"
+              />
+            </label>
+            {data.ativarOrientacoesGerais && (
+              <div className="px-4 pb-4 border-t border-slate-100 pt-3">
+                <Field label="Orientações gerais ao paciente">
+                  <textarea
+                    value={data.orientacoesGerais}
+                    onChange={(e) => onUpdateField(slot, "orientacoesGerais", e.target.value)}
+                    rows={3}
+                    placeholder="Ex.: repouso relativo, hidratação, sinais de alerta..."
+                    className="input resize-none"
+                  />
+                </Field>
+              </div>
+            )}
+          </div>
+
+          <div className="rounded-md border border-slate-200 bg-slate-50/40 overflow-hidden">
+            <label className="flex items-center justify-between gap-3 px-4 py-3 cursor-pointer">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold uppercase tracking-wide text-slate-700">
+                  Retorno / seguimento
+                </span>
+                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-200 text-slate-600 font-medium">
+                  opcional
+                </span>
+              </div>
+              <input
+                type="checkbox"
+                checked={data.ativarRetorno}
+                onChange={() => onToggleFlag(slot, "ativarRetorno")}
+                className="h-4 w-4 accent-[var(--brand)] cursor-pointer"
+              />
+            </label>
+            {data.ativarRetorno && (
+              <div className="px-4 pb-4 border-t border-slate-100 pt-3">
+                <Field label="Retorno / seguimento">
+                  <input
+                    value={data.retorno}
+                    onChange={(e) => onUpdateField(slot, "retorno", e.target.value)}
+                    placeholder="Ex.: retorno em 7 dias com exames"
+                    className="input"
+                  />
+                </Field>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
