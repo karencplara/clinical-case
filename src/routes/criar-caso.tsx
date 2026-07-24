@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import logoAsset from "@/assets/logo-degrade-azul-medio.png.asset.json";
+import logoAsset from "@/assets/logo-degrade-azul-medio.png";
 import { useMemo, useRef, useState } from "react";
 import {
   ArrowLeft,
@@ -450,7 +450,7 @@ function CriarCaso() {
         </Link>
         <div className="h-6 w-px bg-slate-200" />
         <img
-          src={logoAsset.url}
+          src={logoAsset}
           alt="Paciente 360"
           className="h-9 w-auto object-contain"
         />
