@@ -16,6 +16,7 @@ import {
   FileText,
   FileSearch,
   UserPlus,
+  PlayCircle,
 } from "lucide-react";
 
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
@@ -28,16 +29,16 @@ import {
   CommandItem,
 } from "@/components/ui/command";
 
-import personaJovemM from "@/assets/personas/persona-jovem-m.png.asset.json";
-import personaJovemF from "@/assets/personas/persona-jovem-f.jpg.asset.json";
-import personaAdultaF from "@/assets/personas/persona-adulta-f.jpg.asset.json";
-import personaIdosoM from "@/assets/personas/persona-idoso-m.jpg.asset.json";
+import personaJovemM from "@/assets/personas/persona_1.png";
+import personaJovemF from "@/assets/personas/persona_2.jpg";
+import personaAdultaF from "@/assets/personas/persona_3.jpg";
+import personaIdosoM from "@/assets/personas/persona_4.jpg";
 
 const personas = [
-  { id: "p1", name: "Lucas Oliveira", age: 24, gender: "Masculino", image: personaJovemM.url },
-  { id: "p2", name: "Marina Costa", age: 27, gender: "Feminino", image: personaJovemF.url },
-  { id: "p3", name: "Cláudia Ferreira", age: 45, gender: "Feminino", image: personaAdultaF.url },
-  { id: "p4", name: "Seu Antônio Ribeiro", age: 74, gender: "Masculino", image: personaIdosoM.url },
+  { id: "p1", name: "Lucas Oliveira", age: 24, gender: "Masculino", image: personaJovemM },
+  { id: "p2", name: "Marina Costa", age: 27, gender: "Feminino", image: personaJovemF },
+  { id: "p3", name: "Cláudia Ferreira", age: 45, gender: "Feminino", image: personaAdultaF },
+  { id: "p4", name: "Seu Antônio Ribeiro", age: 74, gender: "Masculino", image: personaIdosoM },
 ];
 
 const diagnosisOptions = [
@@ -453,6 +454,14 @@ function CriarCaso() {
           alt="Paciente 360"
           className="h-9 w-auto object-contain"
         />
+
+        <Link
+          to="/executar-caso"
+          className="ml-auto inline-flex items-center gap-2 h-9 px-4 rounded-lg bg-[var(--brand)] text-white text-sm font-medium hover:opacity-90"
+        >
+          <PlayCircle className="h-4 w-4" />
+          Executar Caso
+        </Link>
       </header>
 
       <main className="max-w-5xl mx-auto px-6 py-10">
