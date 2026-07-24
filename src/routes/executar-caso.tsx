@@ -340,6 +340,8 @@ function ExecutarCaso() {
             onAskComoLesionou={() => playClip(foiJogandoFutebolVideo)}
             onAskQuandoAconteceu={() => playClip(faz2DiasVideo)}
             onAskJoelhoInchado={() => playClip(estaInchadoVideo)}
+            onAskDificuldadeCaminhar={() => playClip(simVideo)}
+            onAskJoelhoTrava={() => playClip(naoVideo)}
             accordionValue={anamneseSection}
             onAccordionValueChange={setAnamneseSection}
           />
@@ -458,6 +460,8 @@ function AnamnesePanel({
   onAskComoLesionou,
   onAskQuandoAconteceu,
   onAskJoelhoInchado,
+  onAskDificuldadeCaminhar,
+  onAskJoelhoTrava,
   accordionValue,
   onAccordionValueChange,
 }: {
@@ -466,6 +470,8 @@ function AnamnesePanel({
   onAskComoLesionou: () => void;
   onAskQuandoAconteceu: () => void;
   onAskJoelhoInchado: () => void;
+  onAskDificuldadeCaminhar: () => void;
+  onAskJoelhoTrava: () => void;
   accordionValue: string;
   onAccordionValueChange: (value: string) => void;
 }) {
@@ -533,7 +539,25 @@ function AnamnesePanel({
           <AccordionTrigger className="text-sm font-semibold uppercase tracking-wide text-white">
             Interrogatório sintomatológico
           </AccordionTrigger>
-          <AccordionContent />
+
+          <AccordionContent>
+            <div className="flex flex-col gap-1">
+              <button
+                type="button"
+                onClick={onAskDificuldadeCaminhar}
+                className="rounded px-2 py-2 text-left text-sm text-white/80 transition-colors hover:bg-white/5 hover:text-white"
+              >
+                Tem tido dificuldade em caminhar?
+              </button>
+              <button
+                type="button"
+                onClick={onAskJoelhoTrava}
+                className="rounded px-2 py-2 text-left text-sm text-white/80 transition-colors hover:bg-white/5 hover:text-white"
+              >
+                Você tem sentido o joelho travar?
+              </button>
+            </div>
+          </AccordionContent>
         </AccordionItem>
 
         <AccordionItem value="antecedentes" className="border-white/10">

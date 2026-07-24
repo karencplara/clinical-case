@@ -48,6 +48,7 @@ const personas = [
 const diagnosisOptions = [
   "Hipertensão arterial sistêmica",
   "Diabetes mellitus tipo 2",
+  "Lesão Ligamentar Joelho",
   "Dislipidemia",
   "Infarto agudo do miocárdio",
   "Insuficiência cardíaca",
@@ -986,11 +987,10 @@ function CriarCaso() {
                     key={persona.id}
                     type="button"
                     onClick={() => selectPersona(persona.id)}
-                    className={`group overflow-hidden rounded-xl border bg-white transition-all hover:shadow-md ${
-                      selectedPersonaId === persona.id
+                    className={`group overflow-hidden rounded-xl border bg-white transition-all hover:shadow-md ${selectedPersonaId === persona.id
                         ? "border-[var(--brand)] ring-1 ring-[var(--brand)] shadow-sm"
                         : "border-slate-200 hover:border-[var(--brand)]"
-                    }`}
+                      }`}
                   >
                     <div className="aspect-[2/3] overflow-hidden bg-slate-100">
                       <img
@@ -1007,11 +1007,10 @@ function CriarCaso() {
                 <button
                   type="button"
                   onClick={selectCustomPersona}
-                  className={`group overflow-hidden rounded-xl border-2 border-dashed bg-slate-50/50 transition-all hover:bg-white hover:shadow-md ${
-                    selectedPersonaId === "custom"
+                  className={`group overflow-hidden rounded-xl border-2 border-dashed bg-slate-50/50 transition-all hover:bg-white hover:shadow-md ${selectedPersonaId === "custom"
                       ? "border-[var(--brand)] ring-1 ring-[var(--brand)] shadow-sm bg-white"
                       : "border-slate-300 hover:border-[var(--brand)]"
-                  }`}
+                    }`}
                 >
                   {customPersonaImage && selectedPersonaId === "custom" ? (
                     <div className="aspect-[2/3] overflow-hidden bg-slate-100 relative">
@@ -1245,11 +1244,10 @@ function CriarCaso() {
                                     updateQA(category, index, "answerType", opt.value);
                                     updateQA(category, index, "customAnswer", opt.label);
                                   }}
-                                  className={`h-7 px-2.5 rounded-full text-xs border transition-colors ${
-                                    active
+                                  className={`h-7 px-2.5 rounded-full text-xs border transition-colors ${active
                                       ? "border-[var(--brand)] bg-sky-50 text-[var(--brand)]"
                                       : "border-slate-200 text-slate-600 hover:border-[var(--brand)] hover:text-[var(--brand)]"
-                                  }`}
+                                    }`}
                                 >
                                   {opt.label}
                                 </button>
@@ -1391,25 +1389,7 @@ function CriarCaso() {
                                   </button>
                                 </div>
 
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                  <Field label="Tipo de exame" required>
-                                    <select
-                                      value={a.examType ?? ""}
-                                      onChange={(e) =>
-                                        updateAttachment(a.id, { examType: e.target.value })
-                                      }
-                                      className="input"
-                                    >
-                                      <option value="">Selecione o tipo</option>
-                                      <option value="Radiologia">Radiologia</option>
-                                      <option value="Cardiovascular">Cardiovascular</option>
-                                      <option value="Laboratório">Laboratório</option>
-                                      <option value="Ultrassonografia">Ultrassonografia</option>
-                                      <option value="Dermatológico">Dermatológico</option>
-                                      <option value="Vídeo">Vídeo</option>
-                                      <option value="Outro">Outro</option>
-                                    </select>
-                                  </Field>
+                                <div className="grid grid-cols-1 md:grid-cols-1 gap-3">
                                   <Field label="Nome do exame" required>
                                     <input
                                       type="text"
@@ -1454,11 +1434,10 @@ function CriarCaso() {
                                               wantsVisualMod: opt.value as "sim" | "nao",
                                             })
                                           }
-                                          className={`h-9 px-4 rounded-full text-sm border transition-colors ${
-                                            active
+                                          className={`h-9 px-4 rounded-full text-sm border transition-colors ${active
                                               ? "border-[var(--brand)] bg-sky-50 text-[var(--brand)]"
                                               : "border-slate-200 text-slate-600 hover:border-[var(--brand)] hover:text-[var(--brand)]"
-                                          }`}
+                                            }`}
                                         >
                                           {opt.label}
                                         </button>
@@ -1466,7 +1445,10 @@ function CriarCaso() {
                                     })}
                                   </div>
                                   {a.wantsVisualMod === "sim" && (
-                                    <div className="mt-3">
+                                    <div className="mt-8">
+                                      <span className="block text-sm font-medium text-slate-700 mb-1.5">
+                                        Descreva o prompt:
+                                      </span>
                                       <textarea
                                         value={a.visualModDescription ?? ""}
                                         onChange={(e) =>
@@ -1659,7 +1641,7 @@ function CriarCaso() {
                 <PrescricaoEditor
                   slot="correta"
                   data={form.prescricao.correta}
-                  title="Prescrição correta"
+                  title="Prescrição adequada"
                   badge="Correta"
                   badgeClass="bg-emerald-50 text-emerald-700 border-emerald-200"
                   expanded={presExpanded["correta"] ?? false}
@@ -1682,7 +1664,7 @@ function CriarCaso() {
                       key={i}
                       slot={i}
                       data={pres}
-                      title={`Prescrição incorreta ${i + 1}`}
+                      title={`Prescrição inadequada ${i + 1}`}
                       badge="Incorreta"
                       badgeClass="bg-rose-50 text-rose-700 border-rose-200"
                       expanded={presExpanded[String(i)] ?? false}
@@ -2356,33 +2338,30 @@ function Stepper({
               className="flex flex-col items-center gap-2 flex-1 group"
             >
               <span
-                className={`h-9 w-9 rounded-full flex items-center justify-center text-sm font-semibold border-2 transition-colors ${
-                  done
+                className={`h-9 w-9 rounded-full flex items-center justify-center text-sm font-semibold border-2 transition-colors ${done
                     ? "bg-[var(--brand)] border-[var(--brand)] text-white"
                     : active
                       ? "bg-white border-[var(--brand)] text-[var(--brand)]"
                       : "bg-white border-slate-300 text-slate-400"
-                }`}
+                  }`}
               >
                 {done ? <Check className="h-4 w-4" /> : i + 1}
               </span>
               <span
-                className={`text-xs text-center max-w-[120px] ${
-                  active
+                className={`text-xs text-center max-w-[120px] ${active
                     ? "text-[var(--brand)] font-medium"
                     : done
                       ? "text-slate-700"
                       : "text-slate-400"
-                }`}
+                  }`}
               >
                 {label}
               </span>
             </button>
             {i < steps.length - 1 && (
               <div
-                className={`h-0.5 flex-1 mx-2 -mt-6 ${
-                  i < current ? "bg-[var(--brand)]" : "bg-slate-200"
-                }`}
+                className={`h-0.5 flex-1 mx-2 -mt-6 ${i < current ? "bg-[var(--brand)]" : "bg-slate-200"
+                  }`}
               />
             )}
           </li>
@@ -2491,11 +2470,10 @@ function LibraryModal({
                   return (
                     <div
                       key={item.id}
-                      className={`flex items-center gap-3 rounded-lg border px-3 py-2.5 transition-colors cursor-pointer ${
-                        selected
+                      className={`flex items-center gap-3 rounded-lg border px-3 py-2.5 transition-colors cursor-pointer ${selected
                           ? "border-[var(--brand)] ring-1 ring-[var(--brand)]"
                           : "border-slate-200 hover:border-slate-300"
-                      }`}
+                        }`}
                       onClick={() => setPreviewId(item.id)}
                     >
                       <div className="flex h-9 w-9 items-center justify-center rounded-md bg-sky-50 text-[var(--brand)]">
