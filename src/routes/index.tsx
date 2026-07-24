@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import logoAsset from "@/assets/logo-degrade-azul-medio.png.asset.json";
+import logoAsset from "@/assets/logo-degrade-azul-medio.png";
 import { useState } from "react";
 import {
   Menu,
@@ -160,7 +160,7 @@ function Sidebar() {
     <aside className="w-64 shrink-0 bg-[var(--sidebar-bg)] text-[var(--sidebar-fg)] min-h-screen flex flex-col">
       <div className="h-24 flex items-center justify-center px-5">
         <img
-          src={logoAsset.url}
+          src={logoAsset}
           alt="Paciente 360"
           className="h-12 w-auto object-contain"
         />
