@@ -17,8 +17,10 @@ import {
   FileSearch,
   UserPlus,
   PlayCircle,
+  Sparkles,
 } from "lucide-react";
 
+import { cn } from "@/lib/utils";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import {
   Command,
@@ -105,6 +107,99 @@ const diagnosisOptions = [
   "Outro",
 ];
 
+// Agrupamentos usados pelo gerador automático para sugerir diagnósticos
+// diferenciais plausíveis (mesma área clínica) em vez de opções aleatórias.
+const diagnosisCategories: string[][] = [
+  [
+    "Hipertensão arterial sistêmica",
+    "Diabetes mellitus tipo 2",
+    "Dislipidemia",
+    "Infarto agudo do miocárdio",
+    "Insuficiência cardíaca",
+    "Arritmia cardíaca",
+    "Doença arterial coronariana",
+  ],
+  [
+    "Acidente vascular cerebral isquêmico",
+    "Acidente vascular cerebral hemorrágico",
+    "Enxaqueca",
+    "Epilepsia",
+  ],
+  ["Asma", "Doença pulmonar obstrutiva crônica", "Pneumonia", "Tuberculose", "COVID-19"],
+  [
+    "Gastrite",
+    "Úlcera péptica",
+    "Doença do refluxo gastroesofágico",
+    "Síndrome do intestino irritável",
+    "Doença de Crohn",
+    "Hepatite",
+    "Cirrose hepática",
+    "Colecistite",
+    "Pancreatite",
+  ],
+  ["Nefrolitíase", "Insuficiência renal crônica", "Infecção urinária"],
+  ["Hipertiroidismo", "Hipotiroidismo"],
+  ["Anemia ferropriva", "Leucemia", "Linfoma"],
+  ["Depressão", "Ansiedade generalizada", "Transtorno bipolar"],
+  [
+    "Malária",
+    "Dengue",
+    "Zika",
+    "Hanseníase",
+    "HIV/AIDS",
+    "Sífilis",
+    "Gonorreia",
+    "Herpes zoster",
+  ],
+  ["Dermatite atópica", "Psoríase", "Acne vulgar"],
+  [
+    "Artrite reumatoide",
+    "Lúpus eritematoso sistêmico",
+    "Osteoartrite",
+    "Gota",
+    "Fibromialgia",
+    "Escoliose",
+    "Hérnia de disco",
+    "Fratura de fêmur",
+  ],
+  [
+    "Câncer de mama",
+    "Câncer de colo do útero",
+    "Câncer de próstata",
+    "Câncer de pulmão",
+    "Câncer colorretal",
+  ],
+];
+
+const normalizeText = (s: string) =>
+  s
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+
+// Sugestão local de hipóteses incorretas, sem custo e sem depender de uma
+// API externa: prioriza diferenciais da mesma área clínica do diagnóstico
+// correto e completa com opções do restante da lista, se necessário.
+function generateIncorrectHypotheses(correctDiagnosis: string, count: number): string[] {
+  const normalizedCorrect = normalizeText(correctDiagnosis);
+  const samePool =
+    diagnosisCategories.find((category) =>
+      category.some((d) => normalizeText(d) === normalizedCorrect),
+    ) ?? [];
+
+  const exclude = new Set([normalizedCorrect, normalizeText("Outro")]);
+  const primary = samePool.filter((d) => !exclude.has(normalizeText(d)));
+  const rest = diagnosisOptions.filter(
+    (d) => !exclude.has(normalizeText(d)) && !primary.includes(d),
+  );
+
+  const shuffle = (arr: string[]) => [...arr].sort(() => Math.random() - 0.5);
+  const combined = [...shuffle(primary), ...shuffle(rest)];
+
+  return Array.from({ length: count }, (_, i) => combined[i] ?? "");
+}
+
 type LibraryItem = {
   id: string;
   title: string;
@@ -112,6 +207,31 @@ type LibraryItem = {
   kind: "Imagem" | "Documento";
   description: string;
 };
+
+// A hipótese correta carrega os exames que a confirmam e distratores que não
+// deveriam ser pedidos. Uma hipótese incorreta só faz sentido ter distratores
+// — não existe "exame correto" para um diagnóstico que não é o do caso.
+type HipoteseCorreta = {
+  texto: string;
+  examesCorretos: string[];
+  examesIncorretos: string[];
+};
+
+type HipoteseIncorreta = {
+  texto: string;
+  examesIncorretos: string[];
+};
+
+const emptyHipoteseCorreta = (): HipoteseCorreta => ({
+  texto: "",
+  examesCorretos: [""],
+  examesIncorretos: [""],
+});
+
+const emptyHipoteseIncorreta = (): HipoteseIncorreta => ({
+  texto: "",
+  examesIncorretos: [""],
+});
 
 const libraryItems: LibraryItem[] = [
   {
@@ -245,12 +365,8 @@ function CriarCaso() {
       visualModDescription?: string;
     }[],
     diagnostico: {
-      correta: "",
-      incorretas: ["", ""] as string[],
-    },
-    examesSolicitados: {
-      corretos: [""] as string[],
-      incorretos: [""] as string[],
+      correta: emptyHipoteseCorreta(),
+      incorretas: [emptyHipoteseIncorreta(), emptyHipoteseIncorreta()] as HipoteseIncorreta[],
     },
     conduta: {
       correta: "",
@@ -367,18 +483,29 @@ function CriarCaso() {
     });
   };
 
-  const updateDiagnostico = (field: "correta", value: string) =>
-    setForm((p) => ({ ...p, diagnostico: { ...p.diagnostico, [field]: value } }));
-  const updateDiagIncorreta = (i: number, value: string) =>
+  // Cada hipótese (correta ou incorreta) carrega seus próprios exames
+  // aninhados, mas cada tipo tem um shape diferente: só a hipótese correta
+  // tem exames corretos (que a confirmam) — as incorretas só têm distratores.
+  const updateHipoteseTexto = (target: "correta" | number, value: string) =>
     setForm((p) => {
-      const arr = [...p.diagnostico.incorretas];
-      arr[i] = value;
-      return { ...p, diagnostico: { ...p.diagnostico, incorretas: arr } };
+      if (target === "correta") {
+        return {
+          ...p,
+          diagnostico: { ...p.diagnostico, correta: { ...p.diagnostico.correta, texto: value } },
+        };
+      }
+      const incorretas = [...p.diagnostico.incorretas];
+      incorretas[target] = { ...incorretas[target], texto: value };
+      return { ...p, diagnostico: { ...p.diagnostico, incorretas } };
     });
+
   const addDiagIncorreta = () =>
     setForm((p) => ({
       ...p,
-      diagnostico: { ...p.diagnostico, incorretas: [...p.diagnostico.incorretas, ""] },
+      diagnostico: {
+        ...p.diagnostico,
+        incorretas: [...p.diagnostico.incorretas, emptyHipoteseIncorreta()],
+      },
     }));
   const removeDiagIncorreta = (i: number) =>
     setForm((p) => ({
@@ -389,32 +516,87 @@ function CriarCaso() {
       },
     }));
 
-  const updateExameList = (
-    key: "corretos" | "incorretos",
+  const updateCorretaExame = (
+    key: "examesCorretos" | "examesIncorretos",
     i: number,
     value: string,
   ) =>
     setForm((p) => {
-      const arr = [...p.examesSolicitados[key]];
+      const arr = [...p.diagnostico.correta[key]];
       arr[i] = value;
-      return { ...p, examesSolicitados: { ...p.examesSolicitados, [key]: arr } };
+      return {
+        ...p,
+        diagnostico: { ...p.diagnostico, correta: { ...p.diagnostico.correta, [key]: arr } },
+      };
     });
-  const addExameList = (key: "corretos" | "incorretos") =>
+  const addCorretaExame = (key: "examesCorretos" | "examesIncorretos") =>
     setForm((p) => ({
       ...p,
-      examesSolicitados: {
-        ...p.examesSolicitados,
-        [key]: [...p.examesSolicitados[key], ""],
+      diagnostico: {
+        ...p.diagnostico,
+        correta: { ...p.diagnostico.correta, [key]: [...p.diagnostico.correta[key], ""] },
       },
     }));
-  const removeExameList = (key: "corretos" | "incorretos", i: number) =>
+  const removeCorretaExame = (key: "examesCorretos" | "examesIncorretos", i: number) =>
     setForm((p) => ({
       ...p,
-      examesSolicitados: {
-        ...p.examesSolicitados,
-        [key]: p.examesSolicitados[key].filter((_, idx) => idx !== i),
+      diagnostico: {
+        ...p.diagnostico,
+        correta: {
+          ...p.diagnostico.correta,
+          [key]: p.diagnostico.correta[key].filter((_, idx) => idx !== i),
+        },
       },
     }));
+
+  const updateIncorretaExame = (target: number, i: number, value: string) =>
+    setForm((p) => {
+      const incorretas = [...p.diagnostico.incorretas];
+      const arr = [...incorretas[target].examesIncorretos];
+      arr[i] = value;
+      incorretas[target] = { ...incorretas[target], examesIncorretos: arr };
+      return { ...p, diagnostico: { ...p.diagnostico, incorretas } };
+    });
+  const addIncorretaExame = (target: number) =>
+    setForm((p) => {
+      const incorretas = [...p.diagnostico.incorretas];
+      incorretas[target] = {
+        ...incorretas[target],
+        examesIncorretos: [...incorretas[target].examesIncorretos, ""],
+      };
+      return { ...p, diagnostico: { ...p.diagnostico, incorretas } };
+    });
+  const removeIncorretaExame = (target: number, i: number) =>
+    setForm((p) => {
+      const incorretas = [...p.diagnostico.incorretas];
+      incorretas[target] = {
+        ...incorretas[target],
+        examesIncorretos: incorretas[target].examesIncorretos.filter((_, idx) => idx !== i),
+      };
+      return { ...p, diagnostico: { ...p.diagnostico, incorretas } };
+    });
+
+  const [generatingHipoteses, setGeneratingHipoteses] = useState(false);
+  const handleGenerateIncorrectHypotheses = () => {
+    setGeneratingHipoteses(true);
+    window.setTimeout(() => {
+      setForm((p) => {
+        const base = p.diagnostico.correta.texto || p.caseDiagnosis;
+        const generated = generateIncorrectHypotheses(base, p.diagnostico.incorretas.length);
+        return {
+          ...p,
+          diagnostico: {
+            ...p.diagnostico,
+            incorretas: p.diagnostico.incorretas.map((h, i) => ({
+              ...h,
+              texto: generated[i] || h.texto,
+            })),
+          },
+        };
+      });
+      setGeneratingHipoteses(false);
+    }, 500);
+  };
 
   const updateCondutaCorreta = (value: string) =>
     setForm((p) => ({ ...p, conduta: { ...p.conduta, correta: value } }));
@@ -985,44 +1167,74 @@ function CriarCaso() {
                 </p>
               </div>
 
-              {/* Hipótese diagnóstica */}
-              <div className="border border-slate-200 rounded-lg p-5 space-y-4">
-                <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-700">
-                  Hipótese diagnóstica
-                </h3>
-                <Field label="Hipótese correta" required>
-                  <input
-                    type="text"
-                    value={form.diagnostico.correta}
-                    onChange={(e) => updateDiagnostico("correta", e.target.value)}
-                    placeholder="Ex.: Infarto agudo do miocárdio"
-                    className="input"
-                  />
-                </Field>
+              {/* Hipótese diagnóstica + exames aninhados */}
+              <div className="border border-slate-200 rounded-lg p-5 space-y-5">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-700">
+                      Hipótese diagnóstica
+                    </h3>
+                    <p className="text-xs text-slate-500 mt-1">
+                      Cada hipótese leva seus próprios exames: ao ser
+                      selecionada durante a execução do caso, os exames
+                      aparecem logo em seguida.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleGenerateIncorrectHypotheses}
+                    disabled={generatingHipoteses}
+                    className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-full border border-[var(--brand)]/30 bg-sky-50 text-xs font-semibold text-[var(--brand)] hover:bg-sky-100 transition-colors disabled:opacity-60 disabled:cursor-wait"
+                  >
+                    <Sparkles
+                      className={cn("h-3.5 w-3.5", generatingHipoteses && "animate-pulse")}
+                    />
+                    {generatingHipoteses
+                      ? "Gerando com IA..."
+                      : "Gerar hipóteses incorretas com IA"}
+                  </button>
+                </div>
 
-                <div className="space-y-3">
-                  <span className="block text-sm font-medium text-slate-700">
-                    Hipóteses incorretas
-                  </span>
-                  {form.diagnostico.incorretas.map((v, i) => (
-                    <div key={i} className="flex gap-2">
-                      <input
-                        type="text"
-                        value={v}
-                        onChange={(e) => updateDiagIncorreta(i, e.target.value)}
-                        placeholder={`Ex.: Alternativa incorreta ${i + 1}`}
-                        className="input"
-                      />
-                      {form.diagnostico.incorretas.length > 2 && (
-                        <button
-                          type="button"
-                          onClick={() => removeDiagIncorreta(i)}
-                          className="inline-flex items-center justify-center h-11 w-11 rounded border border-slate-200 text-slate-500 hover:text-red-600"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      )}
-                    </div>
+                <HipoteseCard
+                  title="Hipótese correta"
+                  accent
+                  texto={form.diagnostico.correta.texto}
+                  placeholder="Ex.: Infarto agudo do miocárdio"
+                  onChangeTexto={(v) => updateHipoteseTexto("correta", v)}
+                  examesCorretos={{
+                    values: form.diagnostico.correta.examesCorretos,
+                    onChange: (i, v) => updateCorretaExame("examesCorretos", i, v),
+                    onAdd: () => addCorretaExame("examesCorretos"),
+                    onRemove: (i) => removeCorretaExame("examesCorretos", i),
+                  }}
+                  examesIncorretos={{
+                    values: form.diagnostico.correta.examesIncorretos,
+                    onChange: (i, v) => updateCorretaExame("examesIncorretos", i, v),
+                    onAdd: () => addCorretaExame("examesIncorretos"),
+                    onRemove: (i) => removeCorretaExame("examesIncorretos", i),
+                  }}
+                />
+
+                <div className="space-y-4">
+                  {form.diagnostico.incorretas.map((hip, i) => (
+                    <HipoteseCard
+                      key={i}
+                      title={`Hipótese incorreta ${i + 1}`}
+                      texto={hip.texto}
+                      placeholder={`Ex.: Alternativa incorreta ${i + 1}`}
+                      onChangeTexto={(v) => updateHipoteseTexto(i, v)}
+                      onRemoveHipotese={
+                        form.diagnostico.incorretas.length > 2
+                          ? () => removeDiagIncorreta(i)
+                          : undefined
+                      }
+                      examesIncorretos={{
+                        values: hip.examesIncorretos,
+                        onChange: (ii, v) => updateIncorretaExame(i, ii, v),
+                        onAdd: () => addIncorretaExame(i),
+                        onRemove: (ii) => removeIncorretaExame(i, ii),
+                      }}
+                    />
                   ))}
                 </div>
 
@@ -1034,85 +1246,6 @@ function CriarCaso() {
                   <Plus className="h-4 w-4" />
                   Adicionar hipótese incorreta
                 </button>
-              </div>
-
-              {/* Solicitação de exames */}
-              <div className="border border-slate-200 rounded-lg p-5 space-y-5">
-                <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-700">
-                  Solicitação de exames
-                </h3>
-
-                <div className="space-y-3">
-                  <span className="block text-sm font-medium text-slate-700">
-                    Exames corretos
-                  </span>
-                  {form.examesSolicitados.corretos.map((v, i) => (
-                    <div key={i} className="flex gap-2">
-                      <input
-                        type="text"
-                        value={v}
-                        onChange={(e) =>
-                          updateExameList("corretos", i, e.target.value)
-                        }
-                        placeholder="Ex.: ECG de 12 derivações"
-                        className="input"
-                      />
-                      {form.examesSolicitados.corretos.length > 1 && (
-                        <button
-                          type="button"
-                          onClick={() => removeExameList("corretos", i)}
-                          className="inline-flex items-center justify-center h-11 w-11 rounded border border-slate-200 text-slate-500 hover:text-red-600"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                  <button
-                    type="button"
-                    onClick={() => addExameList("corretos")}
-                    className="inline-flex items-center gap-2 h-9 px-4 rounded border border-[var(--brand)] text-sm font-medium text-[var(--brand)] hover:bg-[var(--brand)] hover:text-white transition-colors"
-                  >
-                    <Plus className="h-4 w-4" />
-                    Adicionar exame correto
-                  </button>
-                </div>
-
-                <div className="space-y-3">
-                  <span className="block text-sm font-medium text-slate-700">
-                    Exames incorretos
-                  </span>
-                  {form.examesSolicitados.incorretos.map((v, i) => (
-                    <div key={i} className="flex gap-2">
-                      <input
-                        type="text"
-                        value={v}
-                        onChange={(e) =>
-                          updateExameList("incorretos", i, e.target.value)
-                        }
-                        placeholder="Ex.: Alternativa não indicada"
-                        className="input"
-                      />
-                      {form.examesSolicitados.incorretos.length > 1 && (
-                        <button
-                          type="button"
-                          onClick={() => removeExameList("incorretos", i)}
-                          className="inline-flex items-center justify-center h-11 w-11 rounded border border-slate-200 text-slate-500 hover:text-red-600"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                  <button
-                    type="button"
-                    onClick={() => addExameList("incorretos")}
-                    className="inline-flex items-center gap-2 h-9 px-4 rounded border border-[var(--brand)] text-sm font-medium text-[var(--brand)] hover:bg-[var(--brand)] hover:text-white transition-colors"
-                  >
-                    <Plus className="h-4 w-4" />
-                    Adicionar exame incorreto
-                  </button>
-                </div>
               </div>
 
               {/* Conduta */}
@@ -1355,6 +1488,140 @@ function Field({
       )}
       {children}
     </label>
+  );
+}
+
+function ExamListEditor({
+  label,
+  values,
+  placeholder,
+  addLabel,
+  onChange,
+  onAdd,
+  onRemove,
+}: {
+  label: string;
+  values: string[];
+  placeholder: string;
+  addLabel: string;
+  onChange: (index: number, value: string) => void;
+  onAdd: () => void;
+  onRemove: (index: number) => void;
+}) {
+  return (
+    <div className="space-y-2.5">
+      <span className="block text-xs font-medium text-slate-500">{label}</span>
+      {values.map((v, i) => (
+        <div key={i} className="flex gap-2">
+          <input
+            type="text"
+            value={v}
+            onChange={(e) => onChange(i, e.target.value)}
+            placeholder={placeholder}
+            className="input h-10 text-sm"
+          />
+          {values.length > 1 && (
+            <button
+              type="button"
+              onClick={() => onRemove(i)}
+              className="inline-flex items-center justify-center h-10 w-10 shrink-0 rounded border border-slate-200 text-slate-500 hover:text-red-600"
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+      ))}
+      <button
+        type="button"
+        onClick={onAdd}
+        className="inline-flex items-center gap-1.5 h-8 px-3 rounded border border-[var(--brand)] text-xs font-medium text-[var(--brand)] hover:bg-[var(--brand)] hover:text-white transition-colors"
+      >
+        <Plus className="h-3.5 w-3.5" />
+        {addLabel}
+      </button>
+    </div>
+  );
+}
+
+type ExamListProps = {
+  values: string[];
+  onChange: (index: number, value: string) => void;
+  onAdd: () => void;
+  onRemove: (index: number) => void;
+};
+
+function HipoteseCard({
+  title,
+  texto,
+  placeholder,
+  accent,
+  onChangeTexto,
+  onRemoveHipotese,
+  examesCorretos,
+  examesIncorretos,
+}: {
+  title: string;
+  texto: string;
+  placeholder: string;
+  accent?: boolean;
+  onChangeTexto: (value: string) => void;
+  onRemoveHipotese?: () => void;
+  // Só a hipótese correta recebe essa prop — hipóteses incorretas não têm
+  // "exame correto" (não existe exame que confirme um diagnóstico errado).
+  examesCorretos?: ExamListProps;
+  examesIncorretos: ExamListProps;
+}) {
+  return (
+    <div
+      className={cn(
+        "rounded-lg border p-4 space-y-4",
+        accent ? "border-[var(--brand)]/30 bg-sky-50/40" : "border-slate-200",
+      )}
+    >
+      <div className="flex items-start gap-2">
+        <div className="flex-1">
+          <Field label={title} required={accent}>
+            <input
+              type="text"
+              value={texto}
+              onChange={(e) => onChangeTexto(e.target.value)}
+              placeholder={placeholder}
+              className="input"
+            />
+          </Field>
+        </div>
+        {onRemoveHipotese && (
+          <button
+            type="button"
+            onClick={onRemoveHipotese}
+            aria-label="Remover hipótese"
+            className="mt-7 inline-flex h-11 w-11 shrink-0 items-center justify-center rounded border border-slate-200 text-slate-500 hover:text-red-600"
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
+        )}
+      </div>
+
+      <div className="pl-4 border-l-2 border-slate-200 space-y-4">
+        <span className="block text-xs font-semibold uppercase tracking-wide text-slate-400">
+          Exames vinculados a esta hipótese
+        </span>
+        {examesCorretos && (
+          <ExamListEditor
+            label="Exames corretos"
+            placeholder="Ex.: ECG de 12 derivações"
+            addLabel="Adicionar exame correto"
+            {...examesCorretos}
+          />
+        )}
+        <ExamListEditor
+          label="Exames incorretos"
+          placeholder="Ex.: Alternativa não indicada"
+          addLabel="Adicionar exame incorreto"
+          {...examesIncorretos}
+        />
+      </div>
+    </div>
   );
 }
 
