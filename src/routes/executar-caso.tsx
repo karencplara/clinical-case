@@ -5,6 +5,7 @@ import {
   ClipboardList,
   LogOut,
   MessageCircleQuestion,
+  MessageSquareReply,
   Stethoscope,
   X,
 } from "lucide-react";
@@ -24,6 +25,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 import loopVideo from "@/assets/videos/videos-caso-clinico/00-loop.mp4";
 import olaDoutorVideo from "@/assets/videos/videos-caso-clinico/01-ola_doutor.mp4";
@@ -50,7 +57,7 @@ export const Route = createFileRoute("/executar-caso")({
   component: ExecutarCaso,
 });
 
-type PanelKey = "anamnese" | "exame" | "conduta";
+type PanelKey = "anamnese" | "exame" | "conduta" | "respostas";
 
 const hipoteses = [
   { id: "lca", label: "Lesão do ligamento cruzado anterior (LCA)" },
@@ -67,6 +74,7 @@ const exames = [
 function ExecutarCaso() {
   const [player, setPlayer] = useState({ src: loopVideo, nonce: 0 });
   const [activePanel, setActivePanel] = useState<PanelKey | null>(null);
+  const [pausedPanel, setPausedPanel] = useState<PanelKey | null>(null);
   const [jerkDone, setJerkDone] = useState(false);
   const [condutaStep, setCondutaStep] = useState<"hipotese" | "exames" | "conduta">(
     "hipotese",
@@ -77,9 +85,21 @@ function ExecutarCaso() {
   );
 
   const isIdle = player.src === loopVideo;
-  const playClip = (src: string) => setPlayer((p) => ({ src, nonce: p.nonce + 1 }));
+
+  const playClip = (src: string) => {
+    setPausedPanel(activePanel);
+    setActivePanel(null);
+    setPlayer((p) => ({ src, nonce: p.nonce + 1 }));
+  };
+
+  const stopClip = () => {
+    setPlayer((p) => ({ src: loopVideo, nonce: p.nonce + 1 }));
+    setActivePanel((current) => current ?? pausedPanel);
+    setPausedPanel(null);
+  };
+
   const handleEnded = () => {
-    if (!isIdle) playClip(loopVideo);
+    if (!isIdle) stopClip();
   };
 
   const togglePanel = (panel: PanelKey) =>
@@ -98,30 +118,70 @@ function ExecutarCaso() {
         className="absolute inset-0 h-full w-full object-cover"
       />
 
-      <div className="absolute right-6 top-1/2 z-30 flex -translate-y-1/2 flex-col gap-4">
-        <PanelIconButton
-          icon={MessageCircleQuestion}
-          label="Anamnese"
-          active={activePanel === "anamnese"}
-          onClick={() => togglePanel("anamnese")}
-        />
-        <PanelIconButton
-          icon={Stethoscope}
-          label="Exame físico"
-          active={activePanel === "exame"}
-          onClick={() => togglePanel("exame")}
-        />
-        <PanelIconButton
-          icon={ClipboardList}
-          label="Conduta"
-          active={activePanel === "conduta"}
-          onClick={() => togglePanel("conduta")}
-        />
-      </div>
+      <TooltipProvider delayDuration={200}>
+        {!isIdle && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                onClick={stopClip}
+                aria-label="Parar vídeo"
+                className="absolute bottom-6 left-1/2 z-30 flex h-10 w-10 -translate-x-1/2 items-center justify-center rounded-full bg-black/60 text-white transition-colors hover:bg-black/80"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="top">Parar vídeo</TooltipContent>
+          </Tooltip>
+        )}
+
+        <div className="absolute right-6 top-1/2 z-30 flex -translate-y-1/2 flex-col gap-4">
+          <PanelIconButton
+            icon={MessageCircleQuestion}
+            label="Anamnese"
+            description="Anamnese"
+            active={activePanel === "anamnese"}
+            onClick={() => togglePanel("anamnese")}
+          />
+          <PanelIconButton
+            icon={Stethoscope}
+            label="Exame físico"
+            description="Exame físico"
+            active={activePanel === "exame"}
+            onClick={() => togglePanel("exame")}
+          />
+          <PanelIconButton
+            icon={ClipboardList}
+            label="Conduta"
+            description="Conduta"
+            active={activePanel === "conduta"}
+            onClick={() => togglePanel("conduta")}
+          />
+          <PanelIconButton
+            icon={MessageSquareReply}
+            label="Respostas rápidas"
+            description="Respostas rápidas"
+            active={activePanel === "respostas"}
+            onClick={() => togglePanel("respostas")}
+          />
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Link
+                to="/criar-caso"
+                aria-label="Sair"
+                className="flex h-14 w-14 items-center justify-center rounded-full bg-red-600 text-white shadow-lg transition-colors hover:bg-red-700"
+              >
+                <LogOut className="h-6 w-6" />
+              </Link>
+            </TooltipTrigger>
+            <TooltipContent side="left">Sair</TooltipContent>
+          </Tooltip>
+        </div>
+      </TooltipProvider>
 
       <div
         className={cn(
-          "fixed left-0 top-0 bottom-24 z-20 w-full max-w-md bg-slate-900/90 shadow-2xl backdrop-blur-sm transition-transform duration-300",
+          "fixed inset-y-0 left-0 z-20 w-full max-w-md bg-slate-900/90 shadow-2xl backdrop-blur-sm transition-transform duration-300",
           activePanel ? "translate-x-0" : "-translate-x-full",
         )}
       >
@@ -154,6 +214,12 @@ function ExecutarCaso() {
             }
           />
         )}
+        {activePanel === "respostas" && (
+          <RespostasRapidasPanel
+            onClose={() => setActivePanel(null)}
+            onReply={playClip}
+          />
+        )}
       </div>
 
       <ExameModal
@@ -164,27 +230,6 @@ function ExecutarCaso() {
           setExamModal(null);
         }}
       />
-
-      <footer className="fixed inset-x-0 bottom-0 z-30 flex h-24 items-center justify-between gap-4 border-t border-white/10 bg-slate-950/95 px-6">
-        <Link
-          to="/criar-caso"
-          className="inline-flex h-10 items-center gap-2 rounded-lg border border-white/20 px-4 text-sm font-medium text-white/80 transition-colors hover:border-white/40 hover:text-white"
-        >
-          <LogOut className="h-4 w-4" />
-          Sair
-        </Link>
-
-        <div className="flex items-center gap-2">
-          <span className="mr-1 text-xs text-white/40">Respostas rápidas:</span>
-          <QuickReplyButton label="Sim" onClick={() => playClip(simVideo)} />
-          <QuickReplyButton label="Não" onClick={() => playClip(naoVideo)} />
-          <QuickReplyButton label="Não tenho" onClick={() => playClip(naoTenhoVideo)} />
-          <QuickReplyButton
-            label="Não tenho certeza"
-            onClick={() => playClip(naoTenhoCertezaVideo)}
-          />
-        </div>
-      </footer>
     </div>
   );
 }
@@ -192,29 +237,35 @@ function ExecutarCaso() {
 function PanelIconButton({
   icon: Icon,
   label,
+  description,
   active,
   onClick,
 }: {
   icon: React.ComponentType<{ className?: string }>;
   label: string;
+  description: string;
   active: boolean;
   onClick: () => void;
 }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-label={label}
-      title={label}
-      className={cn(
-        "flex h-14 w-14 items-center justify-center rounded-full shadow-lg transition-colors",
-        active
-          ? "bg-[var(--brand)] text-white"
-          : "bg-[var(--sidebar-bg)] text-[var(--sidebar-muted)] hover:text-white",
-      )}
-    >
-      <Icon className="h-6 w-6" />
-    </button>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          onClick={onClick}
+          aria-label={label}
+          className={cn(
+            "flex h-14 w-14 items-center justify-center rounded-full shadow-lg transition-colors",
+            active
+              ? "bg-[var(--brand)] text-white"
+              : "bg-[var(--sidebar-bg)] text-[var(--sidebar-muted)] hover:text-white",
+          )}
+        >
+          <Icon className="h-6 w-6" />
+        </button>
+      </TooltipTrigger>
+      <TooltipContent side="left">{description}</TooltipContent>
+    </Tooltip>
   );
 }
 
@@ -497,6 +548,33 @@ function CondutaPanel({
           </div>
         </>
       )}
+    </div>
+  );
+}
+
+function RespostasRapidasPanel({
+  onClose,
+  onReply,
+}: {
+  onClose: () => void;
+  onReply: (src: string) => void;
+}) {
+  return (
+    <div className="flex h-full flex-col overflow-y-auto">
+      <PanelHeader
+        title="Respostas rápidas"
+        subtitle="Selecione a resposta do paciente"
+        onClose={onClose}
+      />
+      <div className="flex flex-wrap gap-3 px-6">
+        <QuickReplyButton label="Sim" onClick={() => onReply(simVideo)} />
+        <QuickReplyButton label="Não" onClick={() => onReply(naoVideo)} />
+        <QuickReplyButton label="Não tenho" onClick={() => onReply(naoTenhoVideo)} />
+        <QuickReplyButton
+          label="Não tenho certeza"
+          onClick={() => onReply(naoTenhoCertezaVideo)}
+        />
+      </div>
     </div>
   );
 }
