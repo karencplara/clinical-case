@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as CriarCasoRouteImport } from './routes/criar-caso'
+import { Route as ExecutarCasoRouteImport } from './routes/executar-caso'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -22,31 +23,40 @@ const CriarCasoRoute = CriarCasoRouteImport.update({
   path: '/criar-caso',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ExecutarCasoRoute = ExecutarCasoRouteImport.update({
+  id: '/executar-caso',
+  path: '/executar-caso',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/criar-caso': typeof CriarCasoRoute
+  '/executar-caso': typeof ExecutarCasoRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/criar-caso': typeof CriarCasoRoute
+  '/executar-caso': typeof ExecutarCasoRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/criar-caso': typeof CriarCasoRoute
+  '/executar-caso': typeof ExecutarCasoRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/criar-caso'
+  fullPaths: '/' | '/criar-caso' | '/executar-caso'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/criar-caso'
-  id: '__root__' | '/' | '/criar-caso'
+  to: '/' | '/criar-caso' | '/executar-caso'
+  id: '__root__' | '/' | '/criar-caso' | '/executar-caso'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   CriarCasoRoute: typeof CriarCasoRoute
+  ExecutarCasoRoute: typeof ExecutarCasoRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -65,12 +75,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CriarCasoRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/executar-caso': {
+      id: '/executar-caso'
+      path: '/executar-caso'
+      fullPath: '/executar-caso'
+      preLoaderRoute: typeof ExecutarCasoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   CriarCasoRoute: CriarCasoRoute,
+  ExecutarCasoRoute: ExecutarCasoRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
