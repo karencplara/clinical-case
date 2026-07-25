@@ -788,6 +788,13 @@ function CriarCaso() {
     });
   };
 
+  const [collapsedAnamneseCategories, setCollapsedAnamneseCategories] = useState<Record<string, boolean>>(() =>
+    Object.fromEntries(Object.keys(form.anamnese).map((category) => [category, true])),
+  );
+  const toggleAnamneseCategory = (category: string) => {
+    setCollapsedAnamneseCategories((prev) => ({ ...prev, [category]: !prev[category] }));
+  };
+
   const [generatingAnamneseField, setGeneratingAnamneseField] = useState<Record<string, boolean>>({});
   const handleGenerateAnamneseField = (
     category: string,
@@ -1330,166 +1337,184 @@ function CriarCaso() {
               </div>
 
               <TooltipProvider delayDuration={200}>
-                {Object.entries(form.anamnese).map(([category, items]) => (
-                  <div
-                    key={category}
-                    className="border border-slate-200 rounded-lg p-5 space-y-4"
-                  >
-                    <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-700">
-                      {category}
-                    </h3>
-
-                    <div className="space-y-3">
-                      {items.map((item, index) => {
-                        const generatingQuestion =
-                          !!generatingAnamneseField[`${category}__${index}__question`];
-                        const generatingAnswer =
-                          !!generatingAnamneseField[`${category}__${index}__customAnswer`];
-                        return (
-                          <div
-                            key={index}
-                            className="grid grid-cols-1 md:grid-cols-[1fr_1fr_auto] gap-3 items-start"
-                          >
-                            <Field
-                              label={index === 0 ? "Título da pergunta" : undefined}
-                            >
-                              <div className="relative">
-                                <input
-                                  type="text"
-                                  value={item.question}
-                                  onChange={(e) =>
-                                    updateQA(category, index, "question", e.target.value)
-                                  }
-                                  placeholder="Ex.: Onde fica a dor?"
-                                  className="input input-with-icon"
-                                />
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <button
-                                      type="button"
-                                      onClick={() =>
-                                        handleGenerateAnamneseField(category, index, "question")
-                                      }
-                                      disabled={generatingQuestion}
-                                      className="absolute right-2 top-1/2 -translate-y-1/2 inline-flex items-center justify-center h-6 w-6 rounded-full text-[var(--brand)] hover:bg-sky-50 transition-colors disabled:cursor-wait"
-                                    >
-                                      <Sparkles
-                                        className={cn(
-                                          "h-4 w-4",
-                                          generatingQuestion && "animate-pulse",
-                                        )}
-                                      />
-                                    </button>
-                                  </TooltipTrigger>
-                                  <TooltipContent side="top">
-                                    Gerar pergunta com IA
-                                  </TooltipContent>
-                                </Tooltip>
-                              </div>
-                            </Field>
-                            <Field
-                              label={index === 0 ? "Resposta do paciente" : undefined}
-                            >
-                              <div className="relative">
-                                <textarea
-                                  value={item.customAnswer}
-                                  onChange={(e) => {
-                                    updateQA(category, index, "customAnswer", e.target.value);
-                                    if (item.answerType) {
-                                      updateQA(category, index, "answerType", "");
-                                    }
-                                  }}
-                                  rows={1}
-                                  placeholder="Digite a resposta do paciente"
-                                  className="input input-with-icon h-11 py-2 resize-y"
-                                />
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <button
-                                      type="button"
-                                      onClick={() =>
-                                        handleGenerateAnamneseField(category, index, "customAnswer")
-                                      }
-                                      disabled={generatingAnswer}
-                                      className="absolute right-2 top-2.5 inline-flex items-center justify-center h-6 w-6 rounded-full text-[var(--brand)] hover:bg-sky-50 transition-colors disabled:cursor-wait"
-                                    >
-                                      <Sparkles
-                                        className={cn(
-                                          "h-4 w-4",
-                                          generatingAnswer && "animate-pulse",
-                                        )}
-                                      />
-                                    </button>
-                                  </TooltipTrigger>
-                                  <TooltipContent side="top">
-                                    Gerar resposta com IA
-                                  </TooltipContent>
-                                </Tooltip>
-                              </div>
-                              <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                                <span className="text-xs text-slate-400 mr-1">
-                                  Respostas rápidas:
-                                </span>
-                                {[
-                                  { value: "sim", label: "Sim" },
-                                  { value: "nao", label: "Não" },
-                                  { value: "nao-me-lembro", label: "Não me lembro..." },
-                                ].map((opt) => {
-                                  const active = item.answerType === opt.value;
-                                  return (
-                                    <button
-                                      key={opt.value}
-                                      type="button"
-                                      onClick={() => {
-                                        updateQA(category, index, "answerType", opt.value);
-                                        updateQA(category, index, "customAnswer", opt.label);
-                                      }}
-                                      className={`h-7 px-2.5 rounded-full text-xs border transition-colors ${active
-                                        ? "border-[var(--brand)] bg-sky-50 text-[var(--brand)]"
-                                        : "border-slate-200 text-slate-600 hover:border-[var(--brand)] hover:text-[var(--brand)]"
-                                        }`}
-                                    >
-                                      {opt.label}
-                                    </button>
-                                  );
-                                })}
-                              </div>
-                            </Field>
-                            <div className="flex flex-col">
-                              {index === 0 && (
-                                <span className="block text-sm font-medium mb-1.5 invisible">
-                                  Excluir
-                                </span>
-                              )}
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <button
-                                    type="button"
-                                    onClick={() => removeQA(category, index)}
-                                    disabled={items.length <= 1}
-                                    className="inline-flex items-center justify-center h-11 w-11 rounded-full text-red-500 hover:bg-red-50 transition-colors disabled:opacity-30 disabled:pointer-events-none"
-                                  >
-                                    <Trash2 className="h-5 w-5" />
-                                  </button>
-                                </TooltipTrigger>
-                                <TooltipContent side="top">Excluir</TooltipContent>
-                              </Tooltip>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() => addQA(category)}
-                      className="inline-flex items-center gap-2 h-9 px-4 rounded border border-[var(--brand)] text-sm font-medium text-[var(--brand)] hover:bg-[var(--brand)] hover:text-white transition-colors"
+                {Object.entries(form.anamnese).map(([category, items]) => {
+                  const collapsed = !!collapsedAnamneseCategories[category];
+                  return (
+                    <div
+                      key={category}
+                      className="border border-slate-200 rounded-lg p-5 space-y-4"
                     >
-                      <Plus className="h-4 w-4" />
-                      Adicionar pergunta e resposta
-                    </button>
-                  </div>
-                ))}
+                      <button
+                        type="button"
+                        onClick={() => toggleAnamneseCategory(category)}
+                        className="flex w-full items-center justify-between gap-3 -m-5 p-5 text-left hover:bg-slate-50/60 transition-colors rounded-lg"
+                      >
+                        <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-700">
+                          {category}
+                        </h3>
+                        {collapsed ? (
+                          <ChevronDown className="h-4 w-4 text-slate-400 shrink-0" />
+                        ) : (
+                          <ChevronUp className="h-4 w-4 text-slate-400 shrink-0" />
+                        )}
+                      </button>
+
+                      {!collapsed && (
+                        <>
+                          <div className="space-y-3">
+                            {items.map((item, index) => {
+                              const generatingQuestion =
+                                !!generatingAnamneseField[`${category}__${index}__question`];
+                              const generatingAnswer =
+                                !!generatingAnamneseField[`${category}__${index}__customAnswer`];
+                              return (
+                                <div
+                                  key={index}
+                                  className="grid grid-cols-1 md:grid-cols-[1fr_1fr_auto] gap-3 items-start mt-4"
+                                >
+                                  <Field
+                                    label={index === 0 ? "Título da pergunta" : undefined}
+                                  >
+                                    <div className="relative">
+                                      <input
+                                        type="text"
+                                        value={item.question}
+                                        onChange={(e) =>
+                                          updateQA(category, index, "question", e.target.value)
+                                        }
+                                        placeholder="Ex.: Onde fica a dor?"
+                                        className="input input-with-icon"
+                                      />
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <button
+                                            type="button"
+                                            onClick={() =>
+                                              handleGenerateAnamneseField(category, index, "question")
+                                            }
+                                            disabled={generatingQuestion}
+                                            className="absolute right-2 top-1/2 -translate-y-1/2 inline-flex items-center justify-center h-6 w-6 rounded-full text-[var(--brand)] hover:bg-sky-50 transition-colors disabled:cursor-wait"
+                                          >
+                                            <Sparkles
+                                              className={cn(
+                                                "h-4 w-4",
+                                                generatingQuestion && "animate-pulse",
+                                              )}
+                                            />
+                                          </button>
+                                        </TooltipTrigger>
+                                        <TooltipContent side="top">
+                                          Gerar pergunta com IA
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    </div>
+                                  </Field>
+                                  <Field
+                                    label={index === 0 ? "Resposta do paciente" : undefined}
+                                  >
+                                    <div className="relative">
+                                      <textarea
+                                        value={item.customAnswer}
+                                        onChange={(e) => {
+                                          updateQA(category, index, "customAnswer", e.target.value);
+                                          if (item.answerType) {
+                                            updateQA(category, index, "answerType", "");
+                                          }
+                                        }}
+                                        rows={1}
+                                        placeholder="Digite a resposta do paciente"
+                                        className="input input-with-icon h-11 py-2 resize-y"
+                                      />
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <button
+                                            type="button"
+                                            onClick={() =>
+                                              handleGenerateAnamneseField(category, index, "customAnswer")
+                                            }
+                                            disabled={generatingAnswer}
+                                            className="absolute right-2 top-2.5 inline-flex items-center justify-center h-6 w-6 rounded-full text-[var(--brand)] hover:bg-sky-50 transition-colors disabled:cursor-wait"
+                                          >
+                                            <Sparkles
+                                              className={cn(
+                                                "h-4 w-4",
+                                                generatingAnswer && "animate-pulse",
+                                              )}
+                                            />
+                                          </button>
+                                        </TooltipTrigger>
+                                        <TooltipContent side="top">
+                                          Gerar resposta com IA
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    </div>
+                                    <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                                      <span className="text-xs text-slate-400 mr-1">
+                                        Respostas rápidas:
+                                      </span>
+                                      {[
+                                        { value: "sim", label: "Sim" },
+                                        { value: "nao", label: "Não" },
+                                        { value: "nao-me-lembro", label: "Não me lembro..." },
+                                      ].map((opt) => {
+                                        const active = item.answerType === opt.value;
+                                        return (
+                                          <button
+                                            key={opt.value}
+                                            type="button"
+                                            onClick={() => {
+                                              updateQA(category, index, "answerType", opt.value);
+                                              updateQA(category, index, "customAnswer", opt.label);
+                                            }}
+                                            className={`h-7 px-2.5 rounded-full text-xs border transition-colors ${active
+                                              ? "border-[var(--brand)] bg-sky-50 text-[var(--brand)]"
+                                              : "border-slate-200 text-slate-600 hover:border-[var(--brand)] hover:text-[var(--brand)]"
+                                              }`}
+                                          >
+                                            {opt.label}
+                                          </button>
+                                        );
+                                      })}
+                                    </div>
+                                  </Field>
+                                  <div className="flex flex-col">
+                                    {index === 0 && (
+                                      <span className="block text-sm font-medium mb-1.5 invisible">
+                                        Excluir
+                                      </span>
+                                    )}
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <button
+                                          type="button"
+                                          onClick={() => removeQA(category, index)}
+                                          disabled={items.length <= 1}
+                                          className="inline-flex items-center justify-center h-11 w-11 rounded-full text-red-500 hover:bg-red-50 transition-colors disabled:opacity-30 disabled:pointer-events-none"
+                                        >
+                                          <Trash2 className="h-5 w-5" />
+                                        </button>
+                                      </TooltipTrigger>
+                                      <TooltipContent side="top">Excluir</TooltipContent>
+                                    </Tooltip>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => addQA(category)}
+                            className="inline-flex items-center gap-2 h-9 px-4 rounded border border-[var(--brand)] text-sm font-medium text-[var(--brand)] hover:bg-[var(--brand)] hover:text-white transition-colors"
+                          >
+                            <Plus className="h-4 w-4" />
+                            Adicionar pergunta e resposta
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  );
+                })}
               </TooltipProvider>
             </section>
           )}
@@ -1771,7 +1796,7 @@ function CriarCaso() {
                 </div>
 
                 <HipoteseCard
-                  title="Hipótese correta"
+                  title="Hipótese adequada"
                   accent
                   texto={form.diagnostico.correta.texto}
                   placeholder="Ex.: Infarto agudo do miocárdio"
@@ -2199,15 +2224,15 @@ function HipoteseCard({
           </span>
           {examesCorretos && (
             <ExamListEditor
-              label="Exames corretos"
+              label="Exames adequados"
               placeholder="Ex.: ECG de 12 derivações"
-              addLabel="Adicionar exame correto"
+              addLabel="Adicionar exame adequado"
               {...examesCorretos}
             />
           )}
           {examesIncorretos && (
             <ExamListEditor
-              label="Exames incorretos"
+              label="Exames inadequados"
               placeholder="Ex.: Alternativa não indicada"
               addLabel="Adicionar exame incorreto"
               {...examesIncorretos}
