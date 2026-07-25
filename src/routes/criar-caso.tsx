@@ -32,6 +32,7 @@ import {
   CommandGroup,
   CommandItem,
 } from "@/components/ui/command";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 import personaJovemM from "@/assets/personas/persona_1.png";
 import personaJovemF from "@/assets/personas/persona_2.jpg";
@@ -110,8 +111,6 @@ const diagnosisOptions = [
   "Outro",
 ];
 
-// Agrupamentos usados pelo gerador automático para sugerir diagnósticos
-// diferenciais plausíveis (mesma área clínica) em vez de opções aleatórias.
 const diagnosisCategories: string[][] = [
   [
     "Hipertensão arterial sistêmica",
@@ -181,9 +180,6 @@ const normalizeText = (s: string) =>
     .toLowerCase()
     .trim();
 
-// Sugestão local de hipóteses incorretas, sem custo e sem depender de uma
-// API externa: prioriza diferenciais da mesma área clínica do diagnóstico
-// correto e completa com opções do restante da lista, se necessário.
 function generateIncorrectHypotheses(correctDiagnosis: string, count: number): string[] {
   const normalizedCorrect = normalizeText(correctDiagnosis);
   const samePool =
@@ -203,51 +199,191 @@ function generateIncorrectHypotheses(correctDiagnosis: string, count: number): s
   return Array.from({ length: count }, (_, i) => combined[i] ?? "");
 }
 
-// Perguntas típicas de anamnese, uma lista por categoria, usadas para
-// preencher automaticamente os campos de pergunta ainda vazios — as
-// respostas ficam em branco para o usuário descrever o caso específico.
-const anamneseTemplates: Record<string, string[]> = {
+type AnamneseQA = { question: string; answers: string[] };
+
+const anamneseBank: Record<string, AnamneseQA[]> = {
   "Queixa principal": [
-    "Olá! No que posso te ajudar hoje?",
-    "Onde é a dor?",
-    "Há quanto tempo você sente isso?",
-    "Como você descreveria essa sensação?",
+    {
+      question: "Onde exatamente você sente a dor no joelho?",
+      answers: [
+        "Sinto uma dor forte na parte interna do joelho direito.",
+        "A dor fica bem na lateral interna, perto da linha da articulação.",
+        "É uma dor do lado de dentro do joelho, perto da coxa.",
+      ],
+    },
+    {
+      question: "Há quanto tempo você sente essa dor?",
+      answers: [
+        "Começou há cerca de três dias, durante um jogo de futebol.",
+        "Foi há uma semana, depois de um treino mais pesado.",
+        "Começou ontem à noite, logo depois de uma pancada no joelho.",
+      ],
+    },
+    {
+      question: "Você sentiu ou ouviu algum estalo no momento da lesão?",
+      answers: [
+        "Sim, ouvi um estalo na hora em que o joelho torceu para dentro.",
+        "Não ouvi nada, só senti uma dor forte de repente.",
+        "Acho que sim, mas não tenho certeza, foi tudo muito rápido.",
+      ],
+    },
+    {
+      question: "O joelho ficou inchado logo após o ocorrido?",
+      answers: [
+        "Sim, inchou bastante poucas horas depois da pancada.",
+        "Ficou um pouco inchado, mas só no dia seguinte.",
+        "Não notei inchaço, só a dor e a dificuldade para mexer.",
+      ],
+    },
+    {
+      question: "Você sente instabilidade ou 'falseio' no joelho?",
+      answers: [
+        "Sim, sinto que o joelho pode ceder quando piso com mais força.",
+        "Às vezes sinto uma leve instabilidade ao girar a perna.",
+        "Não sinto instabilidade, só dor forte ao movimentar.",
+      ],
+    },
   ],
   "História da doença atual": [
-    "Quando os sintomas começaram?",
-    "Os sintomas pioraram ou melhoraram desde então?",
-    "Existe algo que piora ou alivia os sintomas?",
-    "Você já tentou algum tratamento para isso?",
+    {
+      question: "O que você estava fazendo no momento em que a dor começou?",
+      answers: [
+        "Estava jogando futebol quando outro jogador atingiu a lateral do meu joelho.",
+        "Estava correndo e mudei de direção bruscamente quando senti a dor.",
+        "Estava descendo uma escada quando o joelho torceu para dentro.",
+      ],
+    },
+    {
+      question: "Houve algum movimento de torção do joelho durante o trauma?",
+      answers: [
+        "Sim, meu joelho torceu para dentro enquanto eu mudava de direção.",
+        "Sim, o pé ficou fixo no chão e o corpo girou para o lado.",
+        "Não tenho certeza, foi tudo muito rápido.",
+      ],
+    },
+    {
+      question: "Você fez algum tratamento inicial, como gelo ou compressão?",
+      answers: [
+        "Coloquei gelo no local e mantive repouso nas primeiras horas.",
+        "Enfaixei o joelho e evitei apoiar o peso na perna.",
+        "Não fiz nada, só fiquei em repouso esperando melhorar.",
+      ],
+    },
+    {
+      question: "Os sintomas melhoraram ou pioraram desde o início?",
+      answers: [
+        "A dor diminuiu um pouco, mas o inchaço continua.",
+        "Piorou quando tentei voltar a caminhar normalmente.",
+        "Está praticamente igual desde o primeiro dia.",
+      ],
+    },
+    {
+      question: "Você procurou atendimento médico logo após a lesão?",
+      answers: [
+        "Fui ao pronto-socorro no mesmo dia e fizeram um raio-X.",
+        "Não procurei atendimento na hora, vim direto para esta consulta.",
+        "Fui a uma unidade de saúde dois dias depois, por causa do inchaço.",
+      ],
+    },
   ],
   "Antecedentes pessoais e familiares": [
-    "Você tem alguma doença crônica diagnosticada?",
-    "Alguém da sua família já teve um quadro parecido?",
-    "Você já passou por alguma cirurgia?",
-    "Você tem alergia a algum medicamento?",
+    {
+      question: "Você já teve alguma lesão no joelho anteriormente?",
+      answers: [
+        "Não, essa é a primeira vez que machuco esse joelho.",
+        "Já tive uma torção leve há alguns anos, mas nada grave.",
+        "Sim, machuquei o mesmo joelho jogando bola há dois anos.",
+      ],
+    },
+    {
+      question: "Já precisou fazer alguma cirurgia no joelho ou na perna?",
+      answers: [
+        "Nunca precisei de cirurgia, só de fisioterapia uma vez.",
+        "Sim, operei o menisco do outro joelho há alguns anos.",
+        "Não, nunca fiz nenhuma cirurgia.",
+      ],
+    },
+    {
+      question: "Alguém da sua família teve lesões ligamentares no joelho?",
+      answers: [
+        "Meu pai também teve uma lesão no ligamento do joelho jogando bola.",
+        "Não que eu saiba, ninguém na família teve isso.",
+        "Meu irmão machucou o joelho jogando futebol uma vez.",
+      ],
+    },
+    {
+      question: "Você tem alguma doença crônica, como diabetes ou hipertensão?",
+      answers: [
+        "Não tenho nenhuma doença crônica diagnosticada.",
+        "Tenho hipertensão controlada com medicação.",
+        "Tenho diabetes tipo 2, diagnosticada há alguns anos.",
+      ],
+    },
+    {
+      question: "Você tem alergia a algum medicamento?",
+      answers: [
+        "Tenho alergia a dipirona.",
+        "Não tenho alergia a nenhum medicamento que eu conheça.",
+        "Tenho alergia a anti-inflamatórios, causam reação na pele.",
+      ],
+    },
   ],
   "Hábitos de vida": [
-    "Você pratica atividade física com que frequência?",
-    "Você fuma ou consome bebida alcoólica?",
-    "Como é a sua alimentação no dia a dia?",
-    "Como está a sua qualidade de sono?",
+    {
+      question: "Com que frequência você pratica atividade física?",
+      answers: [
+        "Jogo futebol duas a três vezes por semana.",
+        "Faço academia quase todos os dias.",
+        "Pratico atividade física raramente, só aos finais de semana.",
+      ],
+    },
+    {
+      question: "Você faz aquecimento antes de jogar ou treinar?",
+      answers: [
+        "Geralmente faço um aquecimento rápido antes de jogar.",
+        "Quase nunca aqueço antes de começar a atividade.",
+        "Sim, sempre faço alongamento e aquecimento antes de treinar.",
+      ],
+    },
+    {
+      question: "Usa algum tipo de proteção para o joelho durante o esporte?",
+      answers: [
+        "Não uso nenhum tipo de joelheira ou proteção.",
+        "Uso uma joelheira leve às vezes, mas nem sempre.",
+        "Nunca usei proteção para o joelho antes.",
+      ],
+    },
+    {
+      question: "Como está sua alimentação no dia a dia?",
+      answers: [
+        "Minha alimentação é equilibrada, como bem na maioria dos dias.",
+        "Como bastante fora de casa, nem sempre é uma alimentação saudável.",
+        "Sigo uma dieta bem controlada, com acompanhamento nutricional.",
+      ],
+    },
+    {
+      question: "Quantas horas você dorme por noite, em média?",
+      answers: [
+        "Durmo cerca de seis horas por noite.",
+        "Durmo bem, entre sete e oito horas por noite.",
+        "Tenho dormido mal desde a lesão, por causa da dor.",
+      ],
+    },
   ],
 };
 
-// Preenche apenas as perguntas vazias de cada categoria com o template
-// correspondente, respeitando a ordem das linhas já criadas pelo usuário.
-function generateAnamneseQuestions(
-  anamnese: Record<string, { question: string; answerType: string; customAnswer: string }[]>,
-): Record<string, { question: string; answerType: string; customAnswer: string }[]> {
-  const next: typeof anamnese = {};
-  Object.entries(anamnese).forEach(([category, items]) => {
-    const templates = anamneseTemplates[category] ?? [];
-    next[category] = items.map((item, i) =>
-      item.question.trim() === "" && templates[i]
-        ? { ...item, question: templates[i] }
-        : item,
-    );
-  });
-  return next;
+function pickAnamneseQuestion(category: string): string {
+  const entries = anamneseBank[category] ?? [];
+  if (entries.length === 0) return "";
+  return entries[Math.floor(Math.random() * entries.length)].question;
+}
+
+function pickAnamneseAnswer(category: string, question: string): string {
+  const entries = anamneseBank[category] ?? [];
+  const match = entries.find((e) => e.question.trim() === question.trim());
+  const pool = match ? match.answers : entries.flatMap((e) => e.answers);
+  if (pool.length === 0) return "";
+  return pool[Math.floor(Math.random() * pool.length)];
 }
 
 type LibraryItem = {
@@ -258,9 +394,6 @@ type LibraryItem = {
   description: string;
 };
 
-// A hipótese correta carrega os exames que a confirmam e distratores que não
-// deveriam ser pedidos. Uma hipótese incorreta só faz sentido ter distratores
-// — não existe "exame correto" para um diagnóstico que não é o do caso.
 type HipoteseCorreta = {
   texto: string;
   examesCorretos: string[];
@@ -340,8 +473,6 @@ const viasAdministracao = [
   "Retal",
 ];
 
-// Distratores plausíveis para compor prescrições incorretas sem depender de
-// uma API externa: mesma lógica local usada em generateIncorrectHypotheses.
 const distractorMedicamentos: MedicamentoItem[] = [
   {
     nome: "Amoxicilina 500 mg",
@@ -410,8 +541,6 @@ const distractorRetornos = [
   "Retorno em 15 dias, se necessário",
 ];
 
-// Mesma abordagem de generateIncorrectHypotheses: gera alternativas plausíveis
-// a partir da prescrição correta, embaralhando distratores locais.
 function generateIncorrectPrescriptions(correta: PrescricaoData, count: number): PrescricaoData[] {
   const shuffle = <T,>(arr: T[]) => [...arr].sort(() => Math.random() - 0.5);
   const meds = shuffle(distractorMedicamentos);
@@ -629,6 +758,23 @@ function CriarCaso() {
     }));
   };
 
+  const removeQA = (category: string, index: number) => {
+    setForm((prev) => ({
+      ...prev,
+      anamnese: {
+        ...prev.anamnese,
+        [category]: prev.anamnese[category].filter((_, i) => i !== index),
+      },
+    }));
+    setGeneratingAnamneseField((prev) => {
+      const next = { ...prev };
+      Object.keys(next).forEach((key) => {
+        if (key.startsWith(`${category}__`)) delete next[key];
+      });
+      return next;
+    });
+  };
+
   const updateQA = (
     category: string,
     index: number,
@@ -642,13 +788,32 @@ function CriarCaso() {
     });
   };
 
-  const [generatingAnamnese, setGeneratingAnamnese] = useState(false);
-  const handleGenerateAnamnese = () => {
-    setGeneratingAnamnese(true);
+  const [generatingAnamneseField, setGeneratingAnamneseField] = useState<Record<string, boolean>>({});
+  const handleGenerateAnamneseField = (
+    category: string,
+    index: number,
+    field: "question" | "customAnswer",
+  ) => {
+    const key = `${category}__${index}__${field}`;
+    setGeneratingAnamneseField((prev) => ({ ...prev, [key]: true }));
     window.setTimeout(() => {
-      setForm((p) => ({ ...p, anamnese: generateAnamneseQuestions(p.anamnese) }));
-      setGeneratingAnamnese(false);
-    }, 500);
+      setForm((prev) => {
+        const current = prev.anamnese[category]?.[index];
+        if (!current) return prev;
+        const suggestion =
+          field === "question"
+            ? pickAnamneseQuestion(category)
+            : pickAnamneseAnswer(category, current.question);
+        if (!suggestion) return prev;
+        const items = [...prev.anamnese[category]];
+        items[index] =
+          field === "question"
+            ? { ...current, question: suggestion }
+            : { ...current, customAnswer: suggestion, answerType: "" };
+        return { ...prev, anamnese: { ...prev.anamnese, [category]: items } };
+      });
+      setGeneratingAnamneseField((prev) => ({ ...prev, [key]: false }));
+    }, 600 + Math.random() * 500);
   };
 
   const [libraryOpen, setLibraryOpen] = useState(false);
@@ -731,9 +896,6 @@ function CriarCaso() {
     });
   };
 
-  // Cada hipótese (correta ou incorreta) carrega seus próprios exames
-  // aninhados, mas cada tipo tem um shape diferente: só a hipótese correta
-  // tem exames corretos (que a confirmam) — as incorretas só têm distratores.
   const updateHipoteseTexto = (target: "correta" | number, value: string) =>
     setForm((p) => {
       if (target === "correta") {
@@ -987,9 +1149,9 @@ function CriarCaso() {
                     key={persona.id}
                     type="button"
                     onClick={() => selectPersona(persona.id)}
-                    className={`group overflow-hidden rounded-xl border bg-white transition-all hover:shadow-md ${selectedPersonaId === persona.id
-                        ? "border-[var(--brand)] ring-1 ring-[var(--brand)] shadow-sm"
-                        : "border-slate-200 hover:border-[var(--brand)]"
+                    className={`group overflow-hidden cursor-pointer rounded-xl border bg-white transition-all hover:shadow-md ${selectedPersonaId === persona.id
+                      ? "border-[var(--brand)] ring-1 ring-[var(--brand)] shadow-sm"
+                      : "border-slate-200 hover:border-[var(--brand)]"
                       }`}
                   >
                     <div className="aspect-[2/3] overflow-hidden bg-slate-100">
@@ -1008,8 +1170,8 @@ function CriarCaso() {
                   type="button"
                   onClick={selectCustomPersona}
                   className={`group overflow-hidden rounded-xl border-2 border-dashed bg-slate-50/50 transition-all hover:bg-white hover:shadow-md ${selectedPersonaId === "custom"
-                      ? "border-[var(--brand)] ring-1 ring-[var(--brand)] shadow-sm bg-white"
-                      : "border-slate-300 hover:border-[var(--brand)]"
+                    ? "border-[var(--brand)] ring-1 ring-[var(--brand)] shadow-sm bg-white"
+                    : "border-slate-300 hover:border-[var(--brand)]"
                     }`}
                 >
                   {customPersonaImage && selectedPersonaId === "custom" ? (
@@ -1122,7 +1284,6 @@ function CriarCaso() {
                       <option value="">Selecione</option>
                       <option value="Feminino">Feminino</option>
                       <option value="Masculino">Masculino</option>
-                      <option value="Não-binário">Não-binário</option>
                       <option value="Outro">Outro</option>
                       <option value="Prefiro não informar">
                         Prefiro não informar
@@ -1157,118 +1318,179 @@ function CriarCaso() {
 
           {current === 2 && (
             <section className="space-y-8">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <h2 className="text-lg font-semibold text-slate-800">
-                    Anamnese
-                  </h2>
-                  <p className="text-sm text-slate-500 mt-1">
-                    Aqui você pode inserir as informações básicas sobre as
-                    perguntas e respostas que o paciente vai dar durante a
-                    anamnese.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={handleGenerateAnamnese}
-                  disabled={generatingAnamnese}
-                  className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-full border border-[var(--brand)]/30 bg-sky-50 text-xs font-semibold text-[var(--brand)] hover:bg-sky-100 transition-colors disabled:opacity-60 disabled:cursor-wait"
-                >
-                  <Sparkles
-                    className={cn("h-3.5 w-3.5", generatingAnamnese && "animate-pulse")}
-                  />
-                  {generatingAnamnese
-                    ? "Gerando com IA..."
-                    : "Gerar perguntas com IA"}
-                </button>
+              <div>
+                <h2 className="text-lg font-semibold text-slate-800">
+                  Anamnese
+                </h2>
+                <p className="text-sm text-slate-500 mt-1">
+                  Aqui você pode inserir as informações básicas sobre as
+                  perguntas e respostas que o paciente vai dar durante a
+                  anamnese.
+                </p>
               </div>
 
-              {Object.entries(form.anamnese).map(([category, items]) => (
-                <div
-                  key={category}
-                  className="border border-slate-200 rounded-lg p-5 space-y-4"
-                >
-                  <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-700">
-                    {category}
-                  </h3>
-
-                  <div className="space-y-3">
-                    {items.map((item, index) => (
-                      <div
-                        key={index}
-                        className="grid grid-cols-1 md:grid-cols-2 gap-3 items-start"
-                      >
-                        <Field
-                          label={index === 0 ? "Título da pergunta" : undefined}
-                        >
-                          <input
-                            type="text"
-                            value={item.question}
-                            onChange={(e) =>
-                              updateQA(category, index, "question", e.target.value)
-                            }
-                            placeholder="Ex.: Onde fica a dor?"
-                            className="input"
-                          />
-                        </Field>
-                        <Field
-                          label={index === 0 ? "Resposta do paciente" : undefined}
-                        >
-                          <textarea
-                            value={item.customAnswer}
-                            onChange={(e) => {
-                              updateQA(category, index, "customAnswer", e.target.value);
-                              if (item.answerType) {
-                                updateQA(category, index, "answerType", "");
-                              }
-                            }}
-                            rows={1}
-                            placeholder="Digite a resposta do paciente"
-                            className="input h-11 py-2 resize-y"
-                          />
-                          <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                            <span className="text-xs text-slate-400 mr-1">
-                              Respostas rápidas:
-                            </span>
-                            {[
-                              { value: "sim", label: "Sim" },
-                              { value: "nao", label: "Não" },
-                              { value: "nao-me-lembro", label: "Não me lembro..." },
-                            ].map((opt) => {
-                              const active = item.answerType === opt.value;
-                              return (
-                                <button
-                                  key={opt.value}
-                                  type="button"
-                                  onClick={() => {
-                                    updateQA(category, index, "answerType", opt.value);
-                                    updateQA(category, index, "customAnswer", opt.label);
-                                  }}
-                                  className={`h-7 px-2.5 rounded-full text-xs border transition-colors ${active
-                                      ? "border-[var(--brand)] bg-sky-50 text-[var(--brand)]"
-                                      : "border-slate-200 text-slate-600 hover:border-[var(--brand)] hover:text-[var(--brand)]"
-                                    }`}
-                                >
-                                  {opt.label}
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </Field>
-                      </div>
-                    ))}
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => addQA(category)}
-                    className="inline-flex items-center gap-2 h-9 px-4 rounded border border-[var(--brand)] text-sm font-medium text-[var(--brand)] hover:bg-[var(--brand)] hover:text-white transition-colors"
+              <TooltipProvider delayDuration={200}>
+                {Object.entries(form.anamnese).map(([category, items]) => (
+                  <div
+                    key={category}
+                    className="border border-slate-200 rounded-lg p-5 space-y-4"
                   >
-                    <Plus className="h-4 w-4" />
-                    Adicionar pergunta e resposta
-                  </button>
-                </div>
-              ))}
+                    <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-700">
+                      {category}
+                    </h3>
+
+                    <div className="space-y-3">
+                      {items.map((item, index) => {
+                        const generatingQuestion =
+                          !!generatingAnamneseField[`${category}__${index}__question`];
+                        const generatingAnswer =
+                          !!generatingAnamneseField[`${category}__${index}__customAnswer`];
+                        return (
+                          <div
+                            key={index}
+                            className="grid grid-cols-1 md:grid-cols-[1fr_1fr_auto] gap-3 items-start"
+                          >
+                            <Field
+                              label={index === 0 ? "Título da pergunta" : undefined}
+                            >
+                              <div className="relative">
+                                <input
+                                  type="text"
+                                  value={item.question}
+                                  onChange={(e) =>
+                                    updateQA(category, index, "question", e.target.value)
+                                  }
+                                  placeholder="Ex.: Onde fica a dor?"
+                                  className="input input-with-icon"
+                                />
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        handleGenerateAnamneseField(category, index, "question")
+                                      }
+                                      disabled={generatingQuestion}
+                                      className="absolute right-2 top-1/2 -translate-y-1/2 inline-flex items-center justify-center h-6 w-6 rounded-full text-[var(--brand)] hover:bg-sky-50 transition-colors disabled:cursor-wait"
+                                    >
+                                      <Sparkles
+                                        className={cn(
+                                          "h-4 w-4",
+                                          generatingQuestion && "animate-pulse",
+                                        )}
+                                      />
+                                    </button>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="top">
+                                    Gerar pergunta com IA
+                                  </TooltipContent>
+                                </Tooltip>
+                              </div>
+                            </Field>
+                            <Field
+                              label={index === 0 ? "Resposta do paciente" : undefined}
+                            >
+                              <div className="relative">
+                                <textarea
+                                  value={item.customAnswer}
+                                  onChange={(e) => {
+                                    updateQA(category, index, "customAnswer", e.target.value);
+                                    if (item.answerType) {
+                                      updateQA(category, index, "answerType", "");
+                                    }
+                                  }}
+                                  rows={1}
+                                  placeholder="Digite a resposta do paciente"
+                                  className="input input-with-icon h-11 py-2 resize-y"
+                                />
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        handleGenerateAnamneseField(category, index, "customAnswer")
+                                      }
+                                      disabled={generatingAnswer}
+                                      className="absolute right-2 top-2.5 inline-flex items-center justify-center h-6 w-6 rounded-full text-[var(--brand)] hover:bg-sky-50 transition-colors disabled:cursor-wait"
+                                    >
+                                      <Sparkles
+                                        className={cn(
+                                          "h-4 w-4",
+                                          generatingAnswer && "animate-pulse",
+                                        )}
+                                      />
+                                    </button>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="top">
+                                    Gerar resposta com IA
+                                  </TooltipContent>
+                                </Tooltip>
+                              </div>
+                              <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                                <span className="text-xs text-slate-400 mr-1">
+                                  Respostas rápidas:
+                                </span>
+                                {[
+                                  { value: "sim", label: "Sim" },
+                                  { value: "nao", label: "Não" },
+                                  { value: "nao-me-lembro", label: "Não me lembro..." },
+                                ].map((opt) => {
+                                  const active = item.answerType === opt.value;
+                                  return (
+                                    <button
+                                      key={opt.value}
+                                      type="button"
+                                      onClick={() => {
+                                        updateQA(category, index, "answerType", opt.value);
+                                        updateQA(category, index, "customAnswer", opt.label);
+                                      }}
+                                      className={`h-7 px-2.5 rounded-full text-xs border transition-colors ${active
+                                        ? "border-[var(--brand)] bg-sky-50 text-[var(--brand)]"
+                                        : "border-slate-200 text-slate-600 hover:border-[var(--brand)] hover:text-[var(--brand)]"
+                                        }`}
+                                    >
+                                      {opt.label}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </Field>
+                            <div className="flex flex-col">
+                              {index === 0 && (
+                                <span className="block text-sm font-medium mb-1.5 invisible">
+                                  Excluir
+                                </span>
+                              )}
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <button
+                                    type="button"
+                                    onClick={() => removeQA(category, index)}
+                                    disabled={items.length <= 1}
+                                    className="inline-flex items-center justify-center h-11 w-11 rounded-full text-red-500 hover:bg-red-50 transition-colors disabled:opacity-30 disabled:pointer-events-none"
+                                  >
+                                    <Trash2 className="h-5 w-5" />
+                                  </button>
+                                </TooltipTrigger>
+                                <TooltipContent side="top">Excluir</TooltipContent>
+                              </Tooltip>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => addQA(category)}
+                      className="inline-flex items-center gap-2 h-9 px-4 rounded border border-[var(--brand)] text-sm font-medium text-[var(--brand)] hover:bg-[var(--brand)] hover:text-white transition-colors"
+                    >
+                      <Plus className="h-4 w-4" />
+                      Adicionar pergunta e resposta
+                    </button>
+                  </div>
+                ))}
+              </TooltipProvider>
             </section>
           )}
 
@@ -1435,8 +1657,8 @@ function CriarCaso() {
                                             })
                                           }
                                           className={`h-9 px-4 rounded-full text-sm border transition-colors ${active
-                                              ? "border-[var(--brand)] bg-sky-50 text-[var(--brand)]"
-                                              : "border-slate-200 text-slate-600 hover:border-[var(--brand)] hover:text-[var(--brand)]"
+                                            ? "border-[var(--brand)] bg-sky-50 text-[var(--brand)]"
+                                            : "border-slate-200 text-slate-600 hover:border-[var(--brand)] hover:text-[var(--brand)]"
                                             }`}
                                         >
                                           {opt.label}
@@ -1765,6 +1987,7 @@ function CriarCaso() {
         }
         textarea.input { height: auto; padding: 10px 12px; }
         .input:focus { border-color: var(--brand); }
+        .input.input-with-icon { padding-right: 40px; }
       `}</style>
     </div>
   );
@@ -1935,8 +2158,6 @@ function HipoteseCard({
   accent?: boolean;
   onChangeTexto: (value: string) => void;
   onRemoveHipotese?: () => void;
-  // Só a hipótese correta recebe exames: não existe exame que confirme ou
-  // descarte um diagnóstico que não é o do caso.
   examesCorretos?: ExamListProps;
   examesIncorretos?: ExamListProps;
 }) {
@@ -2339,20 +2560,20 @@ function Stepper({
             >
               <span
                 className={`h-9 w-9 rounded-full flex items-center justify-center text-sm font-semibold border-2 transition-colors ${done
-                    ? "bg-[var(--brand)] border-[var(--brand)] text-white"
-                    : active
-                      ? "bg-white border-[var(--brand)] text-[var(--brand)]"
-                      : "bg-white border-slate-300 text-slate-400"
+                  ? "bg-[var(--brand)] border-[var(--brand)] text-white"
+                  : active
+                    ? "bg-white border-[var(--brand)] text-[var(--brand)]"
+                    : "bg-white border-slate-300 text-slate-400"
                   }`}
               >
                 {done ? <Check className="h-4 w-4" /> : i + 1}
               </span>
               <span
                 className={`text-xs text-center max-w-[120px] ${active
-                    ? "text-[var(--brand)] font-medium"
-                    : done
-                      ? "text-slate-700"
-                      : "text-slate-400"
+                  ? "text-[var(--brand)] font-medium"
+                  : done
+                    ? "text-slate-700"
+                    : "text-slate-400"
                   }`}
               >
                 {label}
@@ -2471,8 +2692,8 @@ function LibraryModal({
                     <div
                       key={item.id}
                       className={`flex items-center gap-3 rounded-lg border px-3 py-2.5 transition-colors cursor-pointer ${selected
-                          ? "border-[var(--brand)] ring-1 ring-[var(--brand)]"
-                          : "border-slate-200 hover:border-slate-300"
+                        ? "border-[var(--brand)] ring-1 ring-[var(--brand)]"
+                        : "border-slate-200 hover:border-slate-300"
                         }`}
                       onClick={() => setPreviewId(item.id)}
                     >
