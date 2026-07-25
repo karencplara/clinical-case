@@ -111,93 +111,26 @@ const diagnosisOptions = [
   "Outro",
 ];
 
-const diagnosisCategories: string[][] = [
-  [
-    "Hipertensão arterial sistêmica",
-    "Diabetes mellitus tipo 2",
-    "Dislipidemia",
-    "Infarto agudo do miocárdio",
-    "Insuficiência cardíaca",
-    "Arritmia cardíaca",
-    "Doença arterial coronariana",
-  ],
-  [
-    "Acidente vascular cerebral isquêmico",
-    "Acidente vascular cerebral hemorrágico",
-    "Enxaqueca",
-    "Epilepsia",
-  ],
-  ["Asma", "Doença pulmonar obstrutiva crônica", "Pneumonia", "Tuberculose", "COVID-19"],
-  [
-    "Gastrite",
-    "Úlcera péptica",
-    "Doença do refluxo gastroesofágico",
-    "Síndrome do intestino irritável",
-    "Doença de Crohn",
-    "Hepatite",
-    "Cirrose hepática",
-    "Colecistite",
-    "Pancreatite",
-  ],
-  ["Nefrolitíase", "Insuficiência renal crônica", "Infecção urinária"],
-  ["Hipertiroidismo", "Hipotiroidismo"],
-  ["Anemia ferropriva", "Leucemia", "Linfoma"],
-  ["Depressão", "Ansiedade generalizada", "Transtorno bipolar"],
-  [
-    "Malária",
-    "Dengue",
-    "Zika",
-    "Hanseníase",
-    "HIV/AIDS",
-    "Sífilis",
-    "Gonorreia",
-    "Herpes zoster",
-  ],
-  ["Dermatite atópica", "Psoríase", "Acne vulgar"],
-  [
-    "Artrite reumatoide",
-    "Lúpus eritematoso sistêmico",
-    "Osteoartrite",
-    "Gota",
-    "Fibromialgia",
-    "Escoliose",
-    "Hérnia de disco",
-    "Fratura de fêmur",
-  ],
-  [
-    "Câncer de mama",
-    "Câncer de colo do útero",
-    "Câncer de próstata",
-    "Câncer de pulmão",
-    "Câncer colorretal",
-  ],
+// Hipóteses diagnósticas incorretas, porém plausíveis para o caso de lesão
+// ligamentar medial do joelho — usadas pelo botão de IA de cada input de
+// "Hipótese incorreta" para sortear uma alternativa da mesma área clínica.
+const hipoteseIncorretaBank: string[] = [
+  "Lesão de menisco medial",
+  "Ruptura do ligamento cruzado anterior",
+  "Condromalácia patelar",
+  "Bursite pré-patelar",
+  "Tendinite patelar",
 ];
 
-const normalizeText = (s: string) =>
-  s
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .trim();
-
-function generateIncorrectHypotheses(correctDiagnosis: string, count: number): string[] {
-  const normalizedCorrect = normalizeText(correctDiagnosis);
-  const samePool =
-    diagnosisCategories.find((category) =>
-      category.some((d) => normalizeText(d) === normalizedCorrect),
-    ) ?? [];
-
-  const exclude = new Set([normalizedCorrect, normalizeText("Outro")]);
-  const primary = samePool.filter((d) => !exclude.has(normalizeText(d)));
-  const rest = diagnosisOptions.filter(
-    (d) => !exclude.has(normalizeText(d)) && !primary.includes(d),
-  );
-
-  const shuffle = (arr: string[]) => [...arr].sort(() => Math.random() - 0.5);
-  const combined = [...shuffle(primary), ...shuffle(rest)];
-
-  return Array.from({ length: count }, (_, i) => combined[i] ?? "");
-}
+// Exames sem indicação para investigar uma lesão ligamentar medial do
+// joelho — usados pelo botão de IA de cada input de "exame inadequado".
+const examesInadequadosBank: string[] = [
+  "Endoscopia digestiva alta",
+  "Ecocardiograma transtorácico",
+  "Espirometria",
+  "Ultrassom abdominal total",
+  "Eletroencefalograma",
+];
 
 type AnamneseQA = { question: string; answers: string[] };
 
@@ -699,12 +632,16 @@ function CriarCaso() {
       { id: "g-default", name: "Exames gerais" },
     ] as { id: string; name: string }[],
     diagnostico: {
-      correta: emptyHipoteseCorreta(),
-      incorretas: [emptyHipoteseIncorreta(), emptyHipoteseIncorreta()] as HipoteseIncorreta[],
+      correta: {
+        ...emptyHipoteseCorreta(),
+        texto: "Lesão ligamentar medial",
+        examesCorretos: ["RM"],
+      },
+      incorretas: [emptyHipoteseIncorreta()] as HipoteseIncorreta[],
     },
     prescricao: {
       correta: emptyPrescricao(),
-      incorretas: [emptyPrescricao(), emptyPrescricao()] as PrescricaoData[],
+      incorretas: [emptyPrescricao()] as PrescricaoData[],
     },
   });
 
@@ -966,33 +903,39 @@ function CriarCaso() {
       },
     }));
 
-  const [generatingHipoteses, setGeneratingHipoteses] = useState(false);
-  const handleGenerateIncorrectHypotheses = () => {
-    setGeneratingHipoteses(true);
+  const [generatingHipoteseIncorreta, setGeneratingHipoteseIncorreta] = useState<
+    Record<number, boolean>
+  >({});
+  const handleGenerateHipoteseIncorreta = (index: number) => {
+    setGeneratingHipoteseIncorreta((prev) => ({ ...prev, [index]: true }));
     window.setTimeout(() => {
-      setForm((p) => {
-        const base = p.diagnostico.correta.texto || p.caseDiagnosis;
-        const generated = generateIncorrectHypotheses(base, p.diagnostico.incorretas.length);
-        return {
-          ...p,
-          diagnostico: {
-            ...p.diagnostico,
-            incorretas: p.diagnostico.incorretas.map((h, i) => ({
-              ...h,
-              texto: generated[i] || h.texto,
-            })),
-          },
-        };
-      });
-      setGeneratingHipoteses(false);
-    }, 500);
+      const suggestion =
+        hipoteseIncorretaBank[Math.floor(Math.random() * hipoteseIncorretaBank.length)];
+      updateHipoteseTexto(index, suggestion);
+      setGeneratingHipoteseIncorreta((prev) => ({ ...prev, [index]: false }));
+    }, 600 + Math.random() * 500);
+  };
+
+  const [generatingExameInadequado, setGeneratingExameInadequado] = useState<
+    Record<number, boolean>
+  >({});
+  const handleGenerateExameInadequado = (index: number) => {
+    setGeneratingExameInadequado((prev) => ({ ...prev, [index]: true }));
+    window.setTimeout(() => {
+      const suggestion =
+        examesInadequadosBank[Math.floor(Math.random() * examesInadequadosBank.length)];
+      updateCorretaExame("examesIncorretos", index, suggestion);
+      setGeneratingExameInadequado((prev) => ({ ...prev, [index]: false }));
+    }, 600 + Math.random() * 500);
   };
 
   const [presExpanded, setPresExpanded] = useState<Record<string, boolean>>({
     correta: true,
     "0": false,
-    "1": false,
   });
+
+  const [collapsedHipoteseSection, setCollapsedHipoteseSection] = useState(true);
+  const [collapsedPrescricaoSection, setCollapsedPrescricaoSection] = useState(true);
 
   type PrescricaoSlot = "correta" | number; // number = índice em incorretas
   const getPrescricao = (slot: PrescricaoSlot): PrescricaoData =>
@@ -1769,162 +1712,148 @@ function CriarCaso() {
 
               {/* Hipótese diagnóstica + exames aninhados */}
               <div className="border border-slate-200 rounded-lg p-5 space-y-5">
-                <div className="flex flex-wrap items-start justify-between gap-3">
+                <button
+                  type="button"
+                  onClick={() => setCollapsedHipoteseSection((prev) => !prev)}
+                  className="flex w-full items-center justify-between gap-3 -m-5 p-5 text-left hover:bg-slate-50/60 transition-colors rounded-lg"
+                >
                   <div>
                     <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-700">
                       Hipótese diagnóstica
                     </h3>
-                    <p className="text-xs text-slate-500 mt-1">
+                    <p className="text-xs text-slate-500 mt-1 ">
                       Cada hipótese leva seus próprios exames: ao ser
                       selecionada durante a execução do caso, os exames
                       aparecem logo em seguida.
                     </p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={handleGenerateIncorrectHypotheses}
-                    disabled={generatingHipoteses}
-                    className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-full border border-[var(--brand)]/30 bg-sky-50 text-xs font-semibold text-[var(--brand)] hover:bg-sky-100 transition-colors disabled:opacity-60 disabled:cursor-wait"
-                  >
-                    <Sparkles
-                      className={cn("h-3.5 w-3.5", generatingHipoteses && "animate-pulse")}
-                    />
-                    {generatingHipoteses
-                      ? "Gerando com IA..."
-                      : "Gerar hipóteses incorretas com IA"}
-                  </button>
-                </div>
-
-                <HipoteseCard
-                  title="Hipótese adequada"
-                  accent
-                  texto={form.diagnostico.correta.texto}
-                  placeholder="Ex.: Infarto agudo do miocárdio"
-                  onChangeTexto={(v) => updateHipoteseTexto("correta", v)}
-                  examesCorretos={{
-                    values: form.diagnostico.correta.examesCorretos,
-                    onChange: (i, v) => updateCorretaExame("examesCorretos", i, v),
-                    onAdd: () => addCorretaExame("examesCorretos"),
-                    onRemove: (i) => removeCorretaExame("examesCorretos", i),
-                  }}
-                  examesIncorretos={{
-                    values: form.diagnostico.correta.examesIncorretos,
-                    onChange: (i, v) => updateCorretaExame("examesIncorretos", i, v),
-                    onAdd: () => addCorretaExame("examesIncorretos"),
-                    onRemove: (i) => removeCorretaExame("examesIncorretos", i),
-                  }}
-                />
-
-                <div className="space-y-4">
-                  {form.diagnostico.incorretas.map((hip, i) => (
-                    <HipoteseCard
-                      key={i}
-                      title={`Hipótese incorreta ${i + 1}`}
-                      texto={hip.texto}
-                      placeholder={`Ex.: Alternativa incorreta ${i + 1}`}
-                      onChangeTexto={(v) => updateHipoteseTexto(i, v)}
-                      onRemoveHipotese={
-                        form.diagnostico.incorretas.length > 2
-                          ? () => removeDiagIncorreta(i)
-                          : undefined
-                      }
-                    />
-                  ))}
-                </div>
-
-                <button
-                  type="button"
-                  onClick={addDiagIncorreta}
-                  className="inline-flex items-center gap-2 h-9 px-4 rounded border border-[var(--brand)] text-sm font-medium text-[var(--brand)] hover:bg-[var(--brand)] hover:text-white transition-colors"
-                >
-                  <Plus className="h-4 w-4" />
-                  Adicionar hipótese incorreta
+                  {collapsedHipoteseSection ? (
+                    <ChevronDown className="h-4 w-4 text-slate-400 shrink-0" />
+                  ) : (
+                    <ChevronUp className="h-4 w-4 text-slate-400 shrink-0" />
+                  )}
                 </button>
+
+                {!collapsedHipoteseSection && (
+                  <>
+                    <TooltipProvider delayDuration={200}>
+                      <HipoteseCard
+                        title="Hipótese adequada"
+                        accent
+                        texto={form.diagnostico.correta.texto}
+                        placeholder="Ex.: Infarto agudo do miocárdio"
+                        onChangeTexto={(v) => updateHipoteseTexto("correta", v)}
+                        examesCorretos={{
+                          values: form.diagnostico.correta.examesCorretos,
+                          onChange: (i, v) => updateCorretaExame("examesCorretos", i, v),
+                          onAdd: () => addCorretaExame("examesCorretos"),
+                          onRemove: (i) => removeCorretaExame("examesCorretos", i),
+                        }}
+                        examesIncorretos={{
+                          values: form.diagnostico.correta.examesIncorretos,
+                          onChange: (i, v) => updateCorretaExame("examesIncorretos", i, v),
+                          onAdd: () => addCorretaExame("examesIncorretos"),
+                          onRemove: (i) => removeCorretaExame("examesIncorretos", i),
+                          onGenerateItem: handleGenerateExameInadequado,
+                          generatingIndex: generatingExameInadequado,
+                        }}
+                      />
+
+                      <div className="space-y-4">
+                        {form.diagnostico.incorretas.map((hip, i) => (
+                          <HipoteseCard
+                            key={i}
+                            title={`Hipótese inadequada`}
+                            texto={hip.texto}
+                            placeholder={`Ex.: Alternativa inadequada ${i + 1}`}
+                            onChangeTexto={(v) => updateHipoteseTexto(i, v)}
+                            onRemoveHipotese={() => removeDiagIncorreta(i)}
+                            removeDisabled={form.diagnostico.incorretas.length <= 1}
+                            onGenerateTexto={() => handleGenerateHipoteseIncorreta(i)}
+                            generatingTexto={!!generatingHipoteseIncorreta[i]}
+                          />
+                        ))}
+                      </div>
+                    </TooltipProvider>
+
+                    <button
+                      type="button"
+                      onClick={addDiagIncorreta}
+                      className="inline-flex items-center gap-2 h-9 px-4 rounded border border-[var(--brand)] text-sm font-medium text-[var(--brand)] hover:bg-[var(--brand)] hover:text-white transition-colors"
+                    >
+                      <Plus className="h-4 w-4" />
+                      Adicionar hipótese incorreta
+                    </button>
+                  </>
+                )}
               </div>
 
               {/* Prescrição */}
               <div className="border border-slate-200 rounded-lg p-5 space-y-6">
-                <div>
-                  <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-700">
-                    Prescrição
-                  </h3>
-                  <p className="text-xs text-slate-500 mt-1">
-                    Defina a prescrição correta e as prescrições incorretas.
-                    Você pode gerar cada alternativa incorreta com IA a partir
-                    da correta.
-                  </p>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-slate-50 border border-slate-100 rounded-md p-4">
+                <button
+                  type="button"
+                  onClick={() => setCollapsedPrescricaoSection((prev) => !prev)}
+                  className="flex w-full items-center justify-between gap-3 -m-5 p-5 text-left hover:bg-slate-50/60 transition-colors rounded-lg"
+                >
                   <div>
-                    <span className="block text-xs font-medium text-slate-500 uppercase tracking-wide">
-                      Paciente
-                    </span>
-                    <span className="block text-sm text-slate-800 mt-1">
-                      {form.personaName || "—"}
-                    </span>
+                    <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-700">
+                      Prescrição
+                    </h3>
+                    <p className="text-xs text-slate-500 mt-1">
+                      Defina a prescrição correta e as prescrições incorretas.
+                      Você pode gerar cada alternativa incorreta com IA a partir
+                      da correta.
+                    </p>
                   </div>
-                  <div>
-                    <span className="block text-xs font-medium text-slate-500 uppercase tracking-wide">
-                      Idade
-                    </span>
-                    <span className="block text-sm text-slate-800 mt-1">
-                      {form.personaAge ? `${form.personaAge} anos` : "—"}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="block text-xs font-medium text-slate-500 uppercase tracking-wide">
-                      Peso
-                    </span>
-                    <span className="block text-sm text-slate-800 mt-1">
-                      {form.personaWeight ? `${form.personaWeight} kg` : "—"}
-                    </span>
-                  </div>
-                </div>
-                <p className="text-xs text-slate-400 -mt-2">
-                  Dados carregados da primeira etapa.
-                </p>
+                  {collapsedPrescricaoSection ? (
+                    <ChevronDown className="h-4 w-4 text-slate-400 shrink-0" />
+                  ) : (
+                    <ChevronUp className="h-4 w-4 text-slate-400 shrink-0" />
+                  )}
+                </button>
 
-                <PrescricaoEditor
-                  slot="correta"
-                  data={form.prescricao.correta}
-                  title="Prescrição adequada"
-                  badge="Correta"
-                  badgeClass="bg-emerald-50 text-emerald-700 border-emerald-200"
-                  expanded={presExpanded["correta"] ?? false}
-                  onToggleExpanded={() =>
-                    setPresExpanded((prev) => ({ ...prev, correta: !prev.correta }))
-                  }
-                  onUpdateMed={updateMed}
-                  onAddMed={addMed}
-                  onRemoveMed={removeMed}
-                  onUpdateProc={updateProc}
-                  onAddProc={addProc}
-                  onRemoveProc={removeProc}
-                  onUpdateField={updatePresField}
-                  onToggleFlag={togglePresFlag}
-                />
+                {!collapsedPrescricaoSection && (
+                  <>
+                    <div className="grid grid-cols-1 md:grid-cols-3 mt-2 gap-4 bg-slate-50 border border-slate-100 rounded-md p-4">
+                      <div>
+                        <span className="block text-xs font-medium text-slate-500 uppercase tracking-wide">
+                          Paciente
+                        </span>
+                        <span className="block text-sm text-slate-800 mt-1">
+                          {form.personaName || "—"}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="block text-xs font-medium text-slate-500 uppercase tracking-wide">
+                          Idade
+                        </span>
+                        <span className="block text-sm text-slate-800 mt-1">
+                          {form.personaAge ? `${form.personaAge} anos` : "—"}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="block text-xs font-medium text-slate-500 uppercase tracking-wide">
+                          Peso
+                        </span>
+                        <span className="block text-sm text-slate-800 mt-1">
+                          {form.personaWeight ? `${form.personaWeight} kg` : "—"}
+                        </span>
+                      </div>
+                    </div>
+                    <p className="text-xs text-slate-400 mt-2">
+                      Dados carregados da primeira etapa.
+                    </p>
 
-                <div className="space-y-4">
-                  {form.prescricao.incorretas.map((pres, i) => (
                     <PrescricaoEditor
-                      key={i}
-                      slot={i}
-                      data={pres}
-                      title={`Prescrição inadequada ${i + 1}`}
-                      badge="Incorreta"
-                      badgeClass="bg-rose-50 text-rose-700 border-rose-200"
-                      expanded={presExpanded[String(i)] ?? false}
+                      slot="correta"
+                      data={form.prescricao.correta}
+                      title="Prescrição adequada"
+                      badge="Correta"
+                      badgeClass="bg-emerald-50 text-emerald-700 border-emerald-200"
+                      expanded={presExpanded["correta"] ?? false}
                       onToggleExpanded={() =>
-                        setPresExpanded((prev) => ({ ...prev, [String(i)]: !prev[String(i)] }))
+                        setPresExpanded((prev) => ({ ...prev, correta: !prev.correta }))
                       }
-                      onRemove={
-                        form.prescricao.incorretas.length > 1
-                          ? () => removePrescricaoIncorreta(i)
-                          : undefined
-                      }
-                      onAutoGenerate={() => handleGenerateWrongPrescription(i)}
-                      generating={generatingWrongIdx === i}
                       onUpdateMed={updateMed}
                       onAddMed={addMed}
                       onRemoveMed={removeMed}
@@ -1934,17 +1863,49 @@ function CriarCaso() {
                       onUpdateField={updatePresField}
                       onToggleFlag={togglePresFlag}
                     />
-                  ))}
-                </div>
 
-                <button
-                  type="button"
-                  onClick={addPrescricaoIncorreta}
-                  className="inline-flex items-center gap-2 h-9 px-4 rounded border border-[var(--brand)] text-sm font-medium text-[var(--brand)] hover:bg-[var(--brand)] hover:text-white transition-colors"
-                >
-                  <Plus className="h-4 w-4" />
-                  Adicionar prescrição incorreta
-                </button>
+                    <div className="space-y-4">
+                      {form.prescricao.incorretas.map((pres, i) => (
+                        <PrescricaoEditor
+                          key={i}
+                          slot={i}
+                          data={pres}
+                          title={`Prescrição inadequada ${i + 1}`}
+                          badge="Incorreta"
+                          badgeClass="bg-rose-50 text-rose-700 border-rose-200"
+                          expanded={presExpanded[String(i)] ?? false}
+                          onToggleExpanded={() =>
+                            setPresExpanded((prev) => ({ ...prev, [String(i)]: !prev[String(i)] }))
+                          }
+                          onRemove={
+                            form.prescricao.incorretas.length > 1
+                              ? () => removePrescricaoIncorreta(i)
+                              : undefined
+                          }
+                          onAutoGenerate={() => handleGenerateWrongPrescription(i)}
+                          generating={generatingWrongIdx === i}
+                          onUpdateMed={updateMed}
+                          onAddMed={addMed}
+                          onRemoveMed={removeMed}
+                          onUpdateProc={updateProc}
+                          onAddProc={addProc}
+                          onRemoveProc={removeProc}
+                          onUpdateField={updatePresField}
+                          onToggleFlag={togglePresFlag}
+                        />
+                      ))}
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={addPrescricaoIncorreta}
+                      className="inline-flex items-center gap-2 h-9 px-4 rounded border border-[var(--brand)] text-sm font-medium text-[var(--brand)] hover:bg-[var(--brand)] hover:text-white transition-colors"
+                    >
+                      <Plus className="h-4 w-4" />
+                      Adicionar prescrição incorreta
+                    </button>
+                  </>
+                )}
               </div>
             </section>
           )}
@@ -2116,6 +2077,8 @@ function ExamListEditor({
   onChange,
   onAdd,
   onRemove,
+  onGenerateItem,
+  generatingIndex,
 }: {
   label: string;
   values: string[];
@@ -2124,28 +2087,53 @@ function ExamListEditor({
   onChange: (index: number, value: string) => void;
   onAdd: () => void;
   onRemove: (index: number) => void;
+  onGenerateItem?: (index: number) => void;
+  generatingIndex?: Record<number, boolean>;
 }) {
   return (
     <div className="space-y-2.5">
       <span className="block text-xs font-medium text-slate-500">{label}</span>
       {values.map((v, i) => (
         <div key={i} className="flex gap-2">
-          <input
-            type="text"
-            value={v}
-            onChange={(e) => onChange(i, e.target.value)}
-            placeholder={placeholder}
-            className="input h-10 text-sm"
-          />
-          {values.length > 1 && (
-            <button
-              type="button"
-              onClick={() => onRemove(i)}
-              className="inline-flex items-center justify-center h-10 w-10 shrink-0 rounded border border-slate-200 text-slate-500 hover:text-red-600"
-            >
-              <Trash2 className="h-4 w-4" />
-            </button>
-          )}
+          <div className="relative flex-1">
+            <input
+              type="text"
+              value={v}
+              onChange={(e) => onChange(i, e.target.value)}
+              placeholder={placeholder}
+              className={cn("input h-10 text-sm", onGenerateItem && "input-with-icon")}
+            />
+            {onGenerateItem && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={() => onGenerateItem(i)}
+                    disabled={!!generatingIndex?.[i]}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 inline-flex items-center justify-center h-6 w-6 rounded-full text-[var(--brand)] hover:bg-sky-50 transition-colors disabled:cursor-wait"
+                  >
+                    <Sparkles
+                      className={cn("h-4 w-4", generatingIndex?.[i] && "animate-pulse")}
+                    />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="top">Gerar exame com IA</TooltipContent>
+              </Tooltip>
+            )}
+          </div>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                onClick={() => onRemove(i)}
+                disabled={values.length <= 1}
+                className="inline-flex items-center justify-center h-10 w-10 shrink-0 rounded-full text-red-500 hover:bg-red-50 transition-colors disabled:opacity-30 disabled:pointer-events-none"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="top">Excluir</TooltipContent>
+          </Tooltip>
         </div>
       ))}
       <button
@@ -2165,6 +2153,8 @@ type ExamListProps = {
   onChange: (index: number, value: string) => void;
   onAdd: () => void;
   onRemove: (index: number) => void;
+  onGenerateItem?: (index: number) => void;
+  generatingIndex?: Record<number, boolean>;
 };
 
 function HipoteseCard({
@@ -2174,6 +2164,9 @@ function HipoteseCard({
   accent,
   onChangeTexto,
   onRemoveHipotese,
+  removeDisabled,
+  onGenerateTexto,
+  generatingTexto,
   examesCorretos,
   examesIncorretos,
 }: {
@@ -2183,37 +2176,63 @@ function HipoteseCard({
   accent?: boolean;
   onChangeTexto: (value: string) => void;
   onRemoveHipotese?: () => void;
+  removeDisabled?: boolean;
+  onGenerateTexto?: () => void;
+  generatingTexto?: boolean;
   examesCorretos?: ExamListProps;
   examesIncorretos?: ExamListProps;
 }) {
   return (
     <div
       className={cn(
-        "rounded-lg border p-4 space-y-4",
+        "rounded-lg border p-4 space-y-4 mt-2",
         accent ? "border-[var(--brand)]/30 bg-sky-50/40" : "border-slate-200",
       )}
     >
       <div className="flex items-start gap-2">
         <div className="flex-1">
           <Field label={title} required={accent}>
-            <input
-              type="text"
-              value={texto}
-              onChange={(e) => onChangeTexto(e.target.value)}
-              placeholder={placeholder}
-              className="input"
-            />
+            <div className="relative">
+              <input
+                type="text"
+                value={texto}
+                onChange={(e) => onChangeTexto(e.target.value)}
+                placeholder={placeholder}
+                className={cn("input", onGenerateTexto && "input-with-icon")}
+              />
+              {onGenerateTexto && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      onClick={onGenerateTexto}
+                      disabled={generatingTexto}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 inline-flex items-center justify-center h-6 w-6 rounded-full text-[var(--brand)] hover:bg-sky-50 transition-colors disabled:cursor-wait"
+                    >
+                      <Sparkles className={cn("h-4 w-4", generatingTexto && "animate-pulse")} />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top">Gerar hipótese com IA</TooltipContent>
+                </Tooltip>
+              )}
+            </div>
           </Field>
         </div>
         {onRemoveHipotese && (
-          <button
-            type="button"
-            onClick={onRemoveHipotese}
-            aria-label="Remover hipótese"
-            className="mt-7 inline-flex h-11 w-11 shrink-0 items-center justify-center rounded border border-slate-200 text-slate-500 hover:text-red-600"
-          >
-            <Trash2 className="h-4 w-4" />
-          </button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                onClick={onRemoveHipotese}
+                disabled={removeDisabled}
+                aria-label="Remover hipótese"
+                className="mt-7 inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-red-500 hover:bg-red-50 transition-colors disabled:opacity-30 disabled:pointer-events-none"
+              >
+                <Trash2 className="h-5 w-5" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="top">Excluir</TooltipContent>
+          </Tooltip>
         )}
       </div>
 
