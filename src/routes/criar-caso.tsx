@@ -1865,7 +1865,7 @@ function CriarCaso() {
                           key={i}
                           slot={i}
                           data={pres}
-                          title={`Prescrição inadequada ${i + 1}`}
+                          title={`Prescrição inadequada`}
                           badge="Incorreta"
                           badgeClass="bg-rose-50 text-rose-700 border-rose-200"
                           expanded={presExpanded[String(i)] ?? false}
@@ -2355,7 +2355,7 @@ function PrescricaoEditor({
               className="inline-flex items-center gap-2 h-8 px-3 rounded border border-[var(--brand)] text-xs font-medium text-[var(--brand)] hover:bg-[var(--brand)] hover:text-white transition-colors disabled:opacity-60 disabled:cursor-wait"
             >
               <Sparkles className={cn("h-3.5 w-3.5", generating && "animate-pulse")} />
-              {generating ? "Gerando com IA..." : "Gerar automaticamente"}
+              {generating ? "Gerando com IA..." : "Gerar com IA"}
             </button>
           )}
           {onRemove && (
