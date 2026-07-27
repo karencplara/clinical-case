@@ -591,16 +591,16 @@ const steps = [
 function CriarCaso() {
   const [current, setCurrent] = useState(0);
   const [buildStatus, setBuildStatus] = useState<"idle" | "ready">("idle");
-  const [selectedPersonaId, setSelectedPersonaId] = useState<string | null>(null);
+  const [selectedPersonaId, setSelectedPersonaId] = useState<string | null>("p1");
   const [customPersonaImage, setCustomPersonaImage] = useState<string | null>(null);
   const customPersonaFileRef = useRef<HTMLInputElement | null>(null);
   const [form, setForm] = useState({
-    caseName: "",
-    caseDescription: "",
-    caseDiagnosis: "",
-    personaName: "",
-    personaAge: "",
-    personaGender: "",
+    caseName: "Universidade - Fernando, 25 anos",
+    caseDescription: "Fernando relata uma dor no joelho após uma pancada durante uma partida de futebol.",
+    caseDiagnosis: "Lesão Ligamentar Joelho",
+    personaName: "Fernando da Silva",
+    personaAge: "25",
+    personaGender: "Masculino",
     personaAppearance: "",
     personaWeight: "",
     anamnese: {
@@ -629,13 +629,25 @@ function CriarCaso() {
     diagnostico: {
       correta: {
         ...emptyHipoteseCorreta(),
-        texto: "Lesão ligamentar medial",
-        examesCorretos: ["RM"],
+        texto: "Lesão do ligamento colateral medial",
+        examesCorretos: ["Radiografia de joelho"],
       },
       incorretas: [emptyHipoteseIncorreta()] as HipoteseIncorreta[],
     },
     prescricao: {
-      correta: emptyPrescricao(),
+      correta: {
+        ...emptyPrescricao(),
+        medicamentos: [
+          {
+            nome: "Dipirona 500 mg",
+            dose: "1 comprimido",
+            via: "Via oral",
+            frequencia: "a cada 6 horas",
+            duracao: "por 5 dias",
+            orientacoes: "Administrar em caso de dor.",
+          },
+        ],
+      },
       incorretas: [emptyPrescricao()] as PrescricaoData[],
     },
   });
@@ -669,9 +681,9 @@ function CriarCaso() {
       setSelectedPersonaId("custom");
       setForm((prev) => ({
         ...prev,
-        personaName: "",
-        personaAge: "",
-        personaGender: "",
+        personaName: "Fernando da Silva",
+        personaAge: "25",
+        personaGender: "Masculino",
         personaAppearance: "",
         personaWeight: "",
       }));
@@ -1037,6 +1049,38 @@ function CriarCaso() {
     }, 500);
   };
 
+  const isPersonaStepValid = !!selectedPersonaId;
+
+  const isInfoStepValid =
+    form.caseName.trim() !== "" &&
+    form.caseDescription.trim() !== "" &&
+    form.caseDiagnosis.trim() !== "" &&
+    form.personaName.trim() !== "" &&
+    form.personaAge.trim() !== "" &&
+    form.personaGender.trim() !== "";
+
+  const isAnamneseStepValid = Object.values(form.anamnese).some((items) =>
+    items.some((item) => item.question.trim() !== "" && item.customAnswer.trim() !== ""),
+  );
+
+  const isExameFisicoStepValid = form.attachments.every(
+    (a) => (a.examName ?? "").trim() !== "",
+  );
+
+  const isDiagnosticoStepValid =
+    form.diagnostico.correta.texto.trim() !== "" &&
+    form.prescricao.correta.medicamentos.every((m) => m.nome.trim() !== "") &&
+    form.prescricao.incorretas.every((p) => p.medicamentos.every((m) => m.nome.trim() !== ""));
+
+  const stepValidity = [
+    isPersonaStepValid,
+    isInfoStepValid,
+    isAnamneseStepValid,
+    isExameFisicoStepValid,
+    isDiagnosticoStepValid,
+  ];
+  const canProceed = stepValidity[current];
+
   return (
     <div className="min-h-screen bg-slate-50">
       <header className="h-16 bg-white border-b border-slate-200 flex items-center px-6 gap-4">
@@ -1114,7 +1158,7 @@ function CriarCaso() {
                 <button
                   type="button"
                   onClick={selectCustomPersona}
-                  className={`group overflow-hidden rounded-xl border-2 border-dashed bg-slate-50/50 transition-all hover:bg-white hover:shadow-md ${selectedPersonaId === "custom"
+                  className={`group overflow-hidden cursor-pointer rounded-xl border-2 border-dashed bg-slate-50/50 transition-all hover:bg-white hover:shadow-md ${selectedPersonaId === "custom"
                     ? "border-[var(--brand)] ring-1 ring-[var(--brand)] shadow-sm bg-white"
                     : "border-slate-300 hover:border-[var(--brand)]"
                     }`}
@@ -1285,7 +1329,7 @@ function CriarCaso() {
                       <button
                         type="button"
                         onClick={() => toggleAnamneseCategory(category)}
-                        className="flex w-full items-center justify-between gap-3 -m-5 p-5 text-left hover:bg-slate-50/60 transition-colors rounded-lg"
+                        className="flex w-full items-center justify-between gap-3 -m-5 p-5 text-left cursor-pointer hover:bg-slate-50/60 transition-colors rounded-lg"
                       >
                         <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-700">
                           {category}
@@ -1331,7 +1375,7 @@ function CriarCaso() {
                                               handleGenerateAnamneseField(category, index, "question")
                                             }
                                             disabled={generatingQuestion}
-                                            className="absolute right-2 top-1/2 -translate-y-1/2 inline-flex items-center justify-center h-6 w-6 rounded-full text-[var(--brand)] hover:bg-sky-50 transition-colors disabled:cursor-wait"
+                                            className="absolute right-2 top-1/2 -translate-y-1/2 inline-flex items-center justify-center h-6 w-6 rounded-full text-[var(--brand)] cursor-pointer hover:bg-sky-50 transition-colors disabled:cursor-wait"
                                           >
                                             <Sparkles
                                               className={cn(
@@ -1371,7 +1415,7 @@ function CriarCaso() {
                                               handleGenerateAnamneseField(category, index, "customAnswer")
                                             }
                                             disabled={generatingAnswer}
-                                            className="absolute right-2 top-2.5 inline-flex items-center justify-center h-6 w-6 rounded-full text-[var(--brand)] hover:bg-sky-50 transition-colors disabled:cursor-wait"
+                                            className="absolute right-2 top-2.5 inline-flex items-center justify-center h-6 w-6 rounded-full text-[var(--brand)] cursor-pointer hover:bg-sky-50 transition-colors disabled:cursor-wait"
                                           >
                                             <Sparkles
                                               className={cn(
@@ -1404,7 +1448,7 @@ function CriarCaso() {
                                               updateQA(category, index, "answerType", opt.value);
                                               updateQA(category, index, "customAnswer", opt.label);
                                             }}
-                                            className={`h-7 px-2.5 rounded-full text-xs border transition-colors ${active
+                                            className={`h-7 px-2.5 rounded-full text-xs border cursor-pointer transition-colors ${active
                                               ? "border-[var(--brand)] bg-sky-50 text-[var(--brand)]"
                                               : "border-slate-200 text-slate-600 hover:border-[var(--brand)] hover:text-[var(--brand)]"
                                               }`}
@@ -1427,7 +1471,7 @@ function CriarCaso() {
                                           type="button"
                                           onClick={() => removeQA(category, index)}
                                           disabled={items.length <= 1}
-                                          className="inline-flex items-center justify-center h-11 w-11 rounded-full text-red-500 hover:bg-red-50 transition-colors disabled:opacity-30 disabled:pointer-events-none"
+                                          className="inline-flex items-center justify-center h-11 w-11 rounded-full text-red-500 cursor-pointer hover:bg-red-50 transition-colors disabled:opacity-30 disabled:cursor-not-allowed disabled:pointer-events-none"
                                         >
                                           <Trash2 className="h-5 w-5" />
                                         </button>
@@ -1443,7 +1487,7 @@ function CriarCaso() {
                           <button
                             type="button"
                             onClick={() => addQA(category)}
-                            className="inline-flex items-center gap-2 h-9 px-4 rounded border border-[var(--brand)] text-sm font-medium text-[var(--brand)] hover:bg-[var(--brand)] hover:text-white transition-colors"
+                            className="inline-flex items-center gap-2 h-9 px-4 rounded border border-[var(--brand)] text-sm font-medium text-[var(--brand)] cursor-pointer hover:bg-[var(--brand)] hover:text-white transition-colors"
                           >
                             <Plus className="h-4 w-4" />
                             Adicionar pergunta e resposta
@@ -1484,7 +1528,7 @@ function CriarCaso() {
                 <button
                   type="button"
                   onClick={addExamGroup}
-                  className="w-full inline-flex items-center justify-center gap-2 h-11 rounded-lg border border-dashed border-slate-300 text-sm font-medium text-slate-600 hover:border-[var(--brand)] hover:text-[var(--brand)] transition-colors"
+                  className="w-full inline-flex items-center justify-center gap-2 h-11 rounded-lg border border-dashed border-slate-300 text-sm font-medium text-slate-600 cursor-pointer hover:border-[var(--brand)] hover:text-[var(--brand)] transition-colors"
                 >
                   <Plus className="h-4 w-4" />
                   Criar grupamento de exames
@@ -1513,7 +1557,7 @@ function CriarCaso() {
                           <button
                             type="button"
                             onClick={() => removeExamGroup(group.id)}
-                            className="inline-flex h-8 w-8 items-center justify-center rounded text-slate-400 hover:text-red-600"
+                            className="inline-flex h-8 w-8 items-center justify-center rounded text-slate-400 cursor-pointer hover:text-red-600"
                             aria-label="Remover grupamento"
                           >
                             <Trash2 className="h-4 w-4" />
@@ -1526,7 +1570,7 @@ function CriarCaso() {
                           <button
                             type="button"
                             onClick={() => openUploadFor(group.id)}
-                            className="inline-flex items-center gap-2 h-10 px-4 rounded-lg border border-slate-200 bg-white text-sm font-medium text-slate-700 hover:border-[var(--brand)] hover:text-[var(--brand)] transition-colors"
+                            className="inline-flex items-center gap-2 h-10 px-4 rounded-lg border border-slate-200 bg-white text-sm font-medium text-slate-700 cursor-pointer hover:border-[var(--brand)] hover:text-[var(--brand)] transition-colors"
                           >
                             <Upload className="h-4 w-4" />
                             Fazer upload
@@ -1534,7 +1578,7 @@ function CriarCaso() {
                           <button
                             type="button"
                             onClick={() => openLibraryFor(group.id)}
-                            className="inline-flex items-center gap-2 h-10 px-4 rounded-lg border border-slate-200 bg-white text-sm font-medium text-slate-700 hover:border-[var(--brand)] hover:text-[var(--brand)] transition-colors"
+                            className="inline-flex items-center gap-2 h-10 px-4 rounded-lg border border-slate-200 bg-white text-sm font-medium text-slate-700 cursor-pointer hover:border-[var(--brand)] hover:text-[var(--brand)] transition-colors"
                           >
                             <FileText className="h-4 w-4" />
                             Selecionar da biblioteca
@@ -1567,7 +1611,7 @@ function CriarCaso() {
                                   <button
                                     type="button"
                                     onClick={() => removeAttachment(a.id)}
-                                    className="inline-flex h-8 w-8 items-center justify-center rounded text-slate-400 hover:text-red-600"
+                                    className="inline-flex h-8 w-8 items-center justify-center rounded text-slate-400 cursor-pointer hover:text-red-600"
                                     aria-label="Remover anexo"
                                   >
                                     <X className="h-4 w-4" />
@@ -1619,7 +1663,7 @@ function CriarCaso() {
                                               wantsVisualMod: opt.value as "sim" | "nao",
                                             })
                                           }
-                                          className={`h-9 px-4 rounded-full text-sm border transition-colors ${active
+                                          className={`h-9 px-4 rounded-full text-sm border cursor-pointer transition-colors ${active
                                             ? "border-[var(--brand)] bg-sky-50 text-[var(--brand)]"
                                             : "border-slate-200 text-slate-600 hover:border-[var(--brand)] hover:text-[var(--brand)]"
                                             }`}
@@ -1710,7 +1754,7 @@ function CriarCaso() {
                 <button
                   type="button"
                   onClick={() => setCollapsedHipoteseSection((prev) => !prev)}
-                  className="flex w-full items-center justify-between gap-3 -m-5 p-5 text-left hover:bg-slate-50/60 transition-colors rounded-lg"
+                  className="flex w-full items-center justify-between gap-3 -m-5 p-5 text-left cursor-pointer hover:bg-slate-50/60 transition-colors rounded-lg"
                 >
                   <div>
                     <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-700">
@@ -1774,7 +1818,7 @@ function CriarCaso() {
                     <button
                       type="button"
                       onClick={addDiagIncorreta}
-                      className="inline-flex items-center gap-2 h-9 px-4 rounded border border-[var(--brand)] text-sm font-medium text-[var(--brand)] hover:bg-[var(--brand)] hover:text-white transition-colors"
+                      className="inline-flex items-center gap-2 h-9 px-4 rounded border border-[var(--brand)] text-sm font-medium text-[var(--brand)] cursor-pointer hover:bg-[var(--brand)] hover:text-white transition-colors"
                     >
                       <Plus className="h-4 w-4" />
                       Adicionar hipótese inadequada
@@ -1788,7 +1832,7 @@ function CriarCaso() {
                 <button
                   type="button"
                   onClick={() => setCollapsedPrescricaoSection((prev) => !prev)}
-                  className="flex w-full items-center justify-between gap-3 -m-5 p-5 text-left hover:bg-slate-50/60 transition-colors rounded-lg"
+                  className="flex w-full items-center justify-between gap-3 -m-5 p-5 text-left cursor-pointer hover:bg-slate-50/60 transition-colors rounded-lg"
                 >
                   <div>
                     <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-700">
@@ -1894,7 +1938,7 @@ function CriarCaso() {
                     <button
                       type="button"
                       onClick={addPrescricaoIncorreta}
-                      className="inline-flex items-center gap-2 h-9 px-4 rounded border border-[var(--brand)] text-sm font-medium text-[var(--brand)] hover:bg-[var(--brand)] hover:text-white transition-colors"
+                      className="inline-flex items-center gap-2 h-9 px-4 rounded border border-[var(--brand)] text-sm font-medium text-[var(--brand)] cursor-pointer hover:bg-[var(--brand)] hover:text-white transition-colors"
                     >
                       <Plus className="h-4 w-4" />
                       Adicionar prescrição incorreta
@@ -1909,7 +1953,7 @@ function CriarCaso() {
             <button
               onClick={() => setCurrent((c) => Math.max(0, c - 1))}
               disabled={current === 0}
-              className="inline-flex items-center gap-2 h-10 px-4 rounded border border-slate-200 text-sm text-slate-600 disabled:opacity-40"
+              className="inline-flex items-center gap-2 h-10 px-4 rounded border border-slate-200 text-sm text-slate-600 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none"
             >
               <ArrowLeft className="h-4 w-4" />
               Voltar
@@ -1920,7 +1964,8 @@ function CriarCaso() {
                   ? setBuildStatus("ready")
                   : setCurrent((c) => Math.min(steps.length - 1, c + 1))
               }
-              className="inline-flex items-center gap-2 h-10 px-5 rounded bg-[var(--brand)] text-white text-sm font-medium hover:opacity-90"
+              disabled={!canProceed}
+              className="inline-flex items-center gap-2 h-10 px-5 rounded bg-[var(--brand)] text-white text-sm font-medium cursor-pointer hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none disabled:hover:opacity-40"
             >
               {current === steps.length - 1 ? "Concluir" : "Próximo"}
               <ArrowRight className="h-4 w-4" />
@@ -1997,7 +2042,7 @@ function DiagnosisCombobox({
       <PopoverTrigger asChild>
         <button
           type="button"
-          className="input flex items-center justify-between text-left"
+          className="input flex items-center justify-between text-left cursor-pointer"
         >
           <span className={value ? "text-slate-800" : "text-slate-400"}>
             {value || "Selecione ou digite um diagnóstico"}
@@ -2147,7 +2192,7 @@ function ExamListEditor({
                 type="button"
                 onClick={() => onRemove(i)}
                 disabled={values.length <= 1}
-                className="inline-flex items-center justify-center h-10 w-10 shrink-0 rounded-full text-red-500 hover:bg-red-50 transition-colors disabled:opacity-30 disabled:pointer-events-none"
+                className="inline-flex items-center justify-center h-10 w-10 shrink-0 rounded-full text-red-500 cursor-pointer hover:bg-red-50 transition-colors disabled:opacity-30 disabled:cursor-not-allowed disabled:pointer-events-none"
               >
                 <Trash2 className="h-4 w-4" />
               </button>
@@ -2159,7 +2204,7 @@ function ExamListEditor({
       <button
         type="button"
         onClick={onAdd}
-        className="inline-flex items-center gap-1.5 h-8 px-3 rounded border border-[var(--brand)] text-xs font-medium text-[var(--brand)] hover:bg-[var(--brand)] hover:text-white transition-colors"
+        className="inline-flex items-center gap-1.5 h-8 px-3 rounded border border-[var(--brand)] text-xs font-medium text-[var(--brand)] cursor-pointer hover:bg-[var(--brand)] hover:text-white transition-colors"
       >
         <Plus className="h-3.5 w-3.5" />
         {addLabel}
@@ -2246,7 +2291,7 @@ function HipoteseCard({
                 onClick={onRemoveHipotese}
                 disabled={removeDisabled}
                 aria-label="Remover hipótese"
-                className="mt-7 inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-red-500 hover:bg-red-50 transition-colors disabled:opacity-30 disabled:pointer-events-none"
+                className="mt-7 inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-red-500 cursor-pointer hover:bg-red-50 transition-colors disabled:opacity-30 disabled:cursor-not-allowed disabled:pointer-events-none"
               >
                 <Trash2 className="h-5 w-5" />
               </button>
@@ -2352,7 +2397,7 @@ function PrescricaoEditor({
                 onAutoGenerate();
               }}
               disabled={generating}
-              className="inline-flex items-center gap-2 h-8 px-3 rounded border border-[var(--brand)] text-xs font-medium text-[var(--brand)] hover:bg-[var(--brand)] hover:text-white transition-colors disabled:opacity-60 disabled:cursor-wait"
+              className="inline-flex items-center gap-2 h-8 px-3 rounded border border-[var(--brand)] text-xs font-medium text-[var(--brand)] cursor-pointer hover:bg-[var(--brand)] hover:text-white transition-colors disabled:opacity-60 disabled:cursor-wait"
             >
               <Sparkles className={cn("h-3.5 w-3.5", generating && "animate-pulse")} />
               {generating ? "Gerando com IA..." : "Gerar com IA"}
@@ -2366,7 +2411,7 @@ function PrescricaoEditor({
                 onRemove();
               }}
               aria-label="Remover prescrição"
-              className="inline-flex h-8 w-8 items-center justify-center rounded text-slate-400 hover:text-red-600"
+              className="inline-flex h-8 w-8 items-center justify-center rounded text-slate-400 cursor-pointer hover:text-red-600"
             >
               <Trash2 className="h-4 w-4" />
             </button>
@@ -2396,7 +2441,7 @@ function PrescricaoEditor({
                     <button
                       type="button"
                       onClick={() => onRemoveMed(slot, i)}
-                      className="text-slate-400 hover:text-red-600"
+                      className="text-slate-400 cursor-pointer hover:text-red-600"
                     >
                       <Trash2 className="h-4 w-4" />
                     </button>
@@ -2463,7 +2508,7 @@ function PrescricaoEditor({
             <button
               type="button"
               onClick={() => onAddMed(slot)}
-              className="inline-flex items-center gap-2 h-9 px-3 rounded border border-slate-200 text-xs font-medium text-slate-600 hover:border-[var(--brand)] hover:text-[var(--brand)]"
+              className="inline-flex items-center gap-2 h-9 px-3 rounded border border-slate-200 text-xs font-medium text-slate-600 cursor-pointer hover:border-[var(--brand)] hover:text-[var(--brand)]"
             >
               <Plus className="h-3.5 w-3.5" />
               Adicionar medicamento
@@ -2501,7 +2546,7 @@ function PrescricaoEditor({
                       <button
                         type="button"
                         onClick={() => onRemoveProc(slot, i)}
-                        className="text-slate-400 hover:text-red-600"
+                        className="text-slate-400 cursor-pointer hover:text-red-600"
                       >
                         <Trash2 className="h-4 w-4" />
                       </button>
@@ -2529,7 +2574,7 @@ function PrescricaoEditor({
                 <button
                   type="button"
                   onClick={() => onAddProc(slot)}
-                  className="inline-flex items-center gap-2 h-9 px-3 rounded border border-slate-200 text-xs font-medium text-slate-600 hover:border-[var(--brand)] hover:text-[var(--brand)]"
+                  className="inline-flex items-center gap-2 h-9 px-3 rounded border border-slate-200 text-xs font-medium text-slate-600 cursor-pointer hover:border-[var(--brand)] hover:text-[var(--brand)]"
                 >
                   <Plus className="h-3.5 w-3.5" />
                   Adicionar procedimento
@@ -2622,7 +2667,7 @@ function Stepper({
           <li key={label} className="flex-1 flex items-center">
             <button
               onClick={() => onSelect(i)}
-              className="flex flex-col items-center gap-2 flex-1 group"
+              className="flex flex-col items-center gap-2 flex-1 group cursor-pointer"
             >
               <span
                 className={`h-9 w-9 rounded-full flex items-center justify-center text-sm font-semibold border-2 transition-colors ${done
@@ -2720,7 +2765,7 @@ function LibraryModal({
           <button
             type="button"
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-600"
+            className="text-slate-400 hover:text-slate-600 cursor-pointer"
             aria-label="Fechar"
           >
             <X className="h-5 w-5" />
@@ -2784,7 +2829,7 @@ function LibraryModal({
                           e.stopPropagation();
                           setPreviewId(item.id);
                         }}
-                        className="h-8 w-8 inline-flex items-center justify-center rounded text-slate-400 hover:text-[var(--brand)]"
+                        className="h-8 w-8 inline-flex items-center justify-center rounded text-slate-400 cursor-pointer hover:text-[var(--brand)]"
                         aria-label="Pré-visualizar"
                       >
                         <Eye className="h-4 w-4" />
@@ -2796,7 +2841,7 @@ function LibraryModal({
                           onAdd(item);
                         }}
                         disabled={isAdded}
-                        className="h-8 w-8 inline-flex items-center justify-center rounded text-slate-400 hover:text-[var(--brand)] disabled:opacity-40 disabled:cursor-not-allowed"
+                        className="h-8 w-8 inline-flex items-center justify-center rounded text-slate-400 cursor-pointer hover:text-[var(--brand)] disabled:opacity-40 disabled:cursor-not-allowed"
                         aria-label="Adicionar"
                       >
                         {isAdded ? (
@@ -2856,7 +2901,7 @@ function LibraryModal({
                   type="button"
                   onClick={() => onAdd(preview)}
                   disabled={added.has(preview.id)}
-                  className="w-full inline-flex items-center justify-center gap-2 h-11 rounded-lg bg-[var(--brand)] text-white text-sm font-medium hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full inline-flex items-center justify-center gap-2 h-11 rounded-lg bg-[var(--brand)] text-white text-sm font-medium cursor-pointer hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {added.has(preview.id) ? (
                     <>

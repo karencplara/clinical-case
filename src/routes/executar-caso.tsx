@@ -283,7 +283,7 @@ function ExecutarCaso() {
                 type="button"
                 onClick={stopClip}
                 aria-label="Parar vídeo"
-                className="absolute bottom-6 left-1/2 z-30 flex h-10 w-10 -translate-x-1/2 items-center justify-center rounded-full bg-black/60 text-white transition-colors hover:bg-black/80"
+                className="absolute bottom-6 left-1/2 z-30 flex h-10 w-10 -translate-x-1/2 cursor-pointer items-center justify-center rounded-full bg-black/60 text-white transition-colors hover:bg-black/80"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -409,7 +409,7 @@ function PanelIconButton({
           onClick={onClick}
           aria-label={label}
           className={cn(
-            "flex h-14 w-14 items-center justify-center rounded-full shadow-lg transition-colors",
+            "flex h-14 w-14 cursor-pointer items-center justify-center rounded-full shadow-lg transition-colors",
             active
               ? "bg-[var(--brand)] text-white"
               : "bg-[var(--sidebar-bg)] text-[var(--sidebar-muted)] hover:text-white",
@@ -428,7 +428,7 @@ function QuickReplyButton({ label, onClick }: { label: string; onClick: () => vo
     <button
       type="button"
       onClick={onClick}
-      className="h-10 rounded-full bg-[var(--brand)] px-4 text-sm font-medium text-white transition-opacity hover:opacity-90"
+      className="h-10 cursor-pointer rounded-full bg-[var(--brand)] px-4 text-sm font-medium text-white transition-opacity hover:opacity-90"
     >
       {label}
     </button>
@@ -454,7 +454,7 @@ function PanelHeader({
             type="button"
             onClick={onBack}
             aria-label="Voltar ao passo anterior"
-            className="mt-1 text-white/60 hover:text-white"
+            className="mt-1 cursor-pointer text-white/60 hover:text-white"
           >
             <ArrowLeft className="h-5 w-5" />
           </button>
@@ -470,7 +470,7 @@ function PanelHeader({
         type="button"
         onClick={onClose}
         aria-label="Fechar"
-        className="text-white/60 hover:text-white"
+        className="cursor-pointer text-white/60 hover:text-white"
       >
         <X className="h-5 w-5" />
       </button>
@@ -519,14 +519,14 @@ function AnamnesePanel({
               <button
                 type="button"
                 onClick={onAskOQueSente}
-                className="rounded px-2 py-2 text-left text-sm text-white/80 transition-colors hover:bg-white/5 hover:text-white"
+                className="cursor-pointer rounded px-2 py-2 text-left text-sm text-white/80 transition-colors hover:bg-white/5 hover:text-white"
               >
                 O que você está sentindo?
               </button>
               <button
                 type="button"
                 onClick={onAskComoLesionou}
-                className="rounded px-2 py-2 text-left text-sm text-white/80 transition-colors hover:bg-white/5 hover:text-white"
+                className="cursor-pointer rounded px-2 py-2 text-left text-sm text-white/80 transition-colors hover:bg-white/5 hover:text-white"
               >
                 Como foi que você se lesionou?
               </button>
@@ -544,14 +544,14 @@ function AnamnesePanel({
               <button
                 type="button"
                 onClick={onAskQuandoAconteceu}
-                className="rounded px-2 py-2 text-left text-sm text-white/80 transition-colors hover:bg-white/5 hover:text-white"
+                className="cursor-pointer rounded px-2 py-2 text-left text-sm text-white/80 transition-colors hover:bg-white/5 hover:text-white"
               >
                 Quando isso aconteceu?
               </button>
               <button
                 type="button"
                 onClick={onAskJoelhoInchado}
-                className="rounded px-2 py-2 text-left text-sm text-white/80 transition-colors hover:bg-white/5 hover:text-white"
+                className="cursor-pointer rounded px-2 py-2 text-left text-sm text-white/80 transition-colors hover:bg-white/5 hover:text-white"
               >
                 O joelho ficou inchado?
               </button>
@@ -569,14 +569,14 @@ function AnamnesePanel({
               <button
                 type="button"
                 onClick={onAskDificuldadeCaminhar}
-                className="rounded px-2 py-2 text-left text-sm text-white/80 transition-colors hover:bg-white/5 hover:text-white"
+                className="cursor-pointer rounded px-2 py-2 text-left text-sm text-white/80 transition-colors hover:bg-white/5 hover:text-white"
               >
                 Tem tido dificuldade em caminhar?
               </button>
               <button
                 type="button"
                 onClick={onAskJoelhoTrava}
-                className="rounded px-2 py-2 text-left text-sm text-white/80 transition-colors hover:bg-white/5 hover:text-white"
+                className="cursor-pointer rounded px-2 py-2 text-left text-sm text-white/80 transition-colors hover:bg-white/5 hover:text-white"
               >
                 Você tem sentido o joelho travar?
               </button>
@@ -627,7 +627,7 @@ function ExameFisicoPanel({
             <button
               type="button"
               onClick={onJerk}
-              className="flex w-full items-center justify-between rounded px-2 py-2 text-left text-sm text-white/80 transition-colors hover:bg-white/5 hover:text-white"
+              className="flex w-full cursor-pointer items-center justify-between rounded px-2 py-2 text-left text-sm text-white/80 transition-colors hover:bg-white/5 hover:text-white"
             >
               <span>Exame de Jerk</span>
               {jerkDone && <Check className="h-4 w-4 text-[var(--brand)]" />}
@@ -678,7 +678,7 @@ function CondutaPanel({
                   type="button"
                   onClick={() => onSelectHipotese(h)}
                   className={cn(
-                    "flex items-center gap-3 rounded-lg border bg-white px-4 py-3 text-left text-sm font-medium text-slate-800 transition-colors",
+                    "flex cursor-pointer items-center gap-3 rounded-lg border bg-white px-4 py-3 text-left text-sm font-medium text-slate-800 transition-colors",
                     selected
                       ? "border-[var(--brand)] ring-1 ring-[var(--brand)]"
                       : "border-slate-200 hover:border-slate-300",
@@ -716,7 +716,7 @@ function CondutaPanel({
                 key={exame.id}
                 type="button"
                 onClick={() => onSelectExame(exame)}
-                className="flex items-center gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3 text-left text-sm font-medium text-slate-800 transition-colors hover:border-slate-300"
+                className="flex cursor-pointer items-center gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3 text-left text-sm font-medium text-slate-800 transition-colors hover:border-slate-300"
               >
                 <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border border-slate-300" />
                 {exame.label}
@@ -779,7 +779,7 @@ function CondutaPanel({
                 const opcao = condutaOpcoes.find((o) => o.id === condutaTab);
                 if (opcao) onSubmitConduta(opcao);
               }}
-              className="h-11 w-full rounded-lg bg-[var(--brand)] text-sm font-medium text-white transition-opacity hover:opacity-90"
+              className="h-11 w-full cursor-pointer rounded-lg bg-[var(--brand)] text-sm font-medium text-white transition-opacity hover:opacity-90"
             >
               Prosseguir
             </button>
@@ -835,7 +835,7 @@ function ReviewModal({ review, onClose }: { review: ReviewState; onClose: () => 
           <button
             type="button"
             onClick={onClose}
-            className="h-10 rounded-full bg-red-600 px-6 text-sm font-medium text-white transition-colors hover:bg-red-700"
+            className="h-10 cursor-pointer rounded-full bg-red-600 px-6 text-sm font-medium text-white transition-colors hover:bg-red-700"
           >
             Retornar
           </button>
@@ -846,7 +846,7 @@ function ReviewModal({ review, onClose }: { review: ReviewState; onClose: () => 
                 review.onProsseguir?.();
                 onClose();
               }}
-              className="h-10 rounded-full bg-[var(--brand)] px-6 text-sm font-medium text-white transition-opacity hover:opacity-90"
+              className="h-10 cursor-pointer rounded-full bg-[var(--brand)] px-6 text-sm font-medium text-white transition-opacity hover:opacity-90"
             >
               Prosseguir
             </button>
