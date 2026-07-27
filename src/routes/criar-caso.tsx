@@ -49,7 +49,7 @@ const personas = [
 const diagnosisOptions = [
   "Hipertensão arterial sistêmica",
   "Diabetes mellitus tipo 2",
-  "Lesão Ligamentar Joelho",
+  "Lesão ligamentar joelho",
   "Dislipidemia",
   "Infarto agudo do miocárdio",
   "Insuficiência cardíaca",
@@ -597,12 +597,12 @@ function CriarCaso() {
   const [form, setForm] = useState({
     caseName: "Universidade - Fernando, 25 anos",
     caseDescription: "Fernando relata uma dor no joelho após uma pancada durante uma partida de futebol.",
-    caseDiagnosis: "Lesão Ligamentar Joelho",
+    caseDiagnosis: "Lesão ligamentar joelho",
     personaName: "Fernando da Silva",
     personaAge: "25",
     personaGender: "Masculino",
     personaAppearance: "",
-    personaWeight: "",
+    personaWeight: "71",
     anamnese: {
       "Queixa principal": [{ question: "", answerType: "", customAnswer: "" }],
       "História da doença atual": [{ question: "", answerType: "", customAnswer: "" }],
