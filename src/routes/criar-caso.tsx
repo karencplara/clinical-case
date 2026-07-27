@@ -32,6 +32,7 @@ import {
   CommandGroup,
   CommandItem,
 } from "@/components/ui/command";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 import personaJovemM from "@/assets/personas/persona_1.png";
 import personaJovemF from "@/assets/personas/persona_2.jpg";
@@ -110,144 +111,207 @@ const diagnosisOptions = [
   "Outro",
 ];
 
-// Agrupamentos usados pelo gerador automático para sugerir diagnósticos
-// diferenciais plausíveis (mesma área clínica) em vez de opções aleatórias.
-const diagnosisCategories: string[][] = [
-  [
-    "Hipertensão arterial sistêmica",
-    "Diabetes mellitus tipo 2",
-    "Dislipidemia",
-    "Infarto agudo do miocárdio",
-    "Insuficiência cardíaca",
-    "Arritmia cardíaca",
-    "Doença arterial coronariana",
-  ],
-  [
-    "Acidente vascular cerebral isquêmico",
-    "Acidente vascular cerebral hemorrágico",
-    "Enxaqueca",
-    "Epilepsia",
-  ],
-  ["Asma", "Doença pulmonar obstrutiva crônica", "Pneumonia", "Tuberculose", "COVID-19"],
-  [
-    "Gastrite",
-    "Úlcera péptica",
-    "Doença do refluxo gastroesofágico",
-    "Síndrome do intestino irritável",
-    "Doença de Crohn",
-    "Hepatite",
-    "Cirrose hepática",
-    "Colecistite",
-    "Pancreatite",
-  ],
-  ["Nefrolitíase", "Insuficiência renal crônica", "Infecção urinária"],
-  ["Hipertiroidismo", "Hipotiroidismo"],
-  ["Anemia ferropriva", "Leucemia", "Linfoma"],
-  ["Depressão", "Ansiedade generalizada", "Transtorno bipolar"],
-  [
-    "Malária",
-    "Dengue",
-    "Zika",
-    "Hanseníase",
-    "HIV/AIDS",
-    "Sífilis",
-    "Gonorreia",
-    "Herpes zoster",
-  ],
-  ["Dermatite atópica", "Psoríase", "Acne vulgar"],
-  [
-    "Artrite reumatoide",
-    "Lúpus eritematoso sistêmico",
-    "Osteoartrite",
-    "Gota",
-    "Fibromialgia",
-    "Escoliose",
-    "Hérnia de disco",
-    "Fratura de fêmur",
-  ],
-  [
-    "Câncer de mama",
-    "Câncer de colo do útero",
-    "Câncer de próstata",
-    "Câncer de pulmão",
-    "Câncer colorretal",
-  ],
+const hipoteseIncorretaBank: string[] = [
+  "Lesão de menisco medial",
+  "Ruptura do ligamento cruzado anterior",
+  "Condromalácia patelar",
+  "Bursite pré-patelar",
+  "Tendinite patelar",
 ];
 
-const normalizeText = (s: string) =>
-  s
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .trim();
+const examesInadequadosBank: string[] = [
+  "Endoscopia digestiva alta",
+  "Ecocardiograma transtorácico",
+  "Espirometria",
+  "Ultrassom abdominal total",
+  "Eletroencefalograma",
+];
 
-// Sugestão local de hipóteses incorretas, sem custo e sem depender de uma
-// API externa: prioriza diferenciais da mesma área clínica do diagnóstico
-// correto e completa com opções do restante da lista, se necessário.
-function generateIncorrectHypotheses(correctDiagnosis: string, count: number): string[] {
-  const normalizedCorrect = normalizeText(correctDiagnosis);
-  const samePool =
-    diagnosisCategories.find((category) =>
-      category.some((d) => normalizeText(d) === normalizedCorrect),
-    ) ?? [];
+type AnamneseQA = { question: string; answers: string[] };
 
-  const exclude = new Set([normalizedCorrect, normalizeText("Outro")]);
-  const primary = samePool.filter((d) => !exclude.has(normalizeText(d)));
-  const rest = diagnosisOptions.filter(
-    (d) => !exclude.has(normalizeText(d)) && !primary.includes(d),
-  );
-
-  const shuffle = (arr: string[]) => [...arr].sort(() => Math.random() - 0.5);
-  const combined = [...shuffle(primary), ...shuffle(rest)];
-
-  return Array.from({ length: count }, (_, i) => combined[i] ?? "");
-}
-
-// Perguntas típicas de anamnese, uma lista por categoria, usadas para
-// preencher automaticamente os campos de pergunta ainda vazios — as
-// respostas ficam em branco para o usuário descrever o caso específico.
-const anamneseTemplates: Record<string, string[]> = {
+const anamneseBank: Record<string, AnamneseQA[]> = {
   "Queixa principal": [
-    "Olá! No que posso te ajudar hoje?",
-    "Onde é a dor?",
-    "Há quanto tempo você sente isso?",
-    "Como você descreveria essa sensação?",
+    {
+      question: "Onde exatamente você sente a dor no joelho?",
+      answers: [
+        "Sinto uma dor forte na parte interna do joelho direito.",
+        "A dor fica bem na lateral interna, perto da linha da articulação.",
+        "É uma dor do lado de dentro do joelho, perto da coxa.",
+      ],
+    },
+    {
+      question: "Há quanto tempo você sente essa dor?",
+      answers: [
+        "Começou há cerca de três dias, durante um jogo de futebol.",
+        "Foi há uma semana, depois de um treino mais pesado.",
+        "Começou ontem à noite, logo depois de uma pancada no joelho.",
+      ],
+    },
+    {
+      question: "Você sentiu ou ouviu algum estalo no momento da lesão?",
+      answers: [
+        "Sim, ouvi um estalo na hora em que o joelho torceu para dentro.",
+        "Não ouvi nada, só senti uma dor forte de repente.",
+        "Acho que sim, mas não tenho certeza, foi tudo muito rápido.",
+      ],
+    },
+    {
+      question: "O joelho ficou inchado logo após o ocorrido?",
+      answers: [
+        "Sim, inchou bastante poucas horas depois da pancada.",
+        "Ficou um pouco inchado, mas só no dia seguinte.",
+        "Não notei inchaço, só a dor e a dificuldade para mexer.",
+      ],
+    },
+    {
+      question: "Você sente instabilidade ou 'falseio' no joelho?",
+      answers: [
+        "Sim, sinto que o joelho pode ceder quando piso com mais força.",
+        "Às vezes sinto uma leve instabilidade ao girar a perna.",
+        "Não sinto instabilidade, só dor forte ao movimentar.",
+      ],
+    },
   ],
   "História da doença atual": [
-    "Quando os sintomas começaram?",
-    "Os sintomas pioraram ou melhoraram desde então?",
-    "Existe algo que piora ou alivia os sintomas?",
-    "Você já tentou algum tratamento para isso?",
+    {
+      question: "O que você estava fazendo no momento em que a dor começou?",
+      answers: [
+        "Estava jogando futebol quando outro jogador atingiu a lateral do meu joelho.",
+        "Estava correndo e mudei de direção bruscamente quando senti a dor.",
+        "Estava descendo uma escada quando o joelho torceu para dentro.",
+      ],
+    },
+    {
+      question: "Houve algum movimento de torção do joelho durante o trauma?",
+      answers: [
+        "Sim, meu joelho torceu para dentro enquanto eu mudava de direção.",
+        "Sim, o pé ficou fixo no chão e o corpo girou para o lado.",
+        "Não tenho certeza, foi tudo muito rápido.",
+      ],
+    },
+    {
+      question: "Você fez algum tratamento inicial, como gelo ou compressão?",
+      answers: [
+        "Coloquei gelo no local e mantive repouso nas primeiras horas.",
+        "Enfaixei o joelho e evitei apoiar o peso na perna.",
+        "Não fiz nada, só fiquei em repouso esperando melhorar.",
+      ],
+    },
+    {
+      question: "Os sintomas melhoraram ou pioraram desde o início?",
+      answers: [
+        "A dor diminuiu um pouco, mas o inchaço continua.",
+        "Piorou quando tentei voltar a caminhar normalmente.",
+        "Está praticamente igual desde o primeiro dia.",
+      ],
+    },
+    {
+      question: "Você procurou atendimento médico logo após a lesão?",
+      answers: [
+        "Fui ao pronto-socorro no mesmo dia e fizeram um raio-X.",
+        "Não procurei atendimento na hora, vim direto para esta consulta.",
+        "Fui a uma unidade de saúde dois dias depois, por causa do inchaço.",
+      ],
+    },
   ],
   "Antecedentes pessoais e familiares": [
-    "Você tem alguma doença crônica diagnosticada?",
-    "Alguém da sua família já teve um quadro parecido?",
-    "Você já passou por alguma cirurgia?",
-    "Você tem alergia a algum medicamento?",
+    {
+      question: "Você já teve alguma lesão no joelho anteriormente?",
+      answers: [
+        "Não, essa é a primeira vez que machuco esse joelho.",
+        "Já tive uma torção leve há alguns anos, mas nada grave.",
+        "Sim, machuquei o mesmo joelho jogando bola há dois anos.",
+      ],
+    },
+    {
+      question: "Já precisou fazer alguma cirurgia no joelho ou na perna?",
+      answers: [
+        "Nunca precisei de cirurgia, só de fisioterapia uma vez.",
+        "Sim, operei o menisco do outro joelho há alguns anos.",
+        "Não, nunca fiz nenhuma cirurgia.",
+      ],
+    },
+    {
+      question: "Alguém da sua família teve lesões ligamentares no joelho?",
+      answers: [
+        "Meu pai também teve uma lesão no ligamento do joelho jogando bola.",
+        "Não que eu saiba, ninguém na família teve isso.",
+        "Meu irmão machucou o joelho jogando futebol uma vez.",
+      ],
+    },
+    {
+      question: "Você tem alguma doença crônica, como diabetes ou hipertensão?",
+      answers: [
+        "Não tenho nenhuma doença crônica diagnosticada.",
+        "Tenho hipertensão controlada com medicação.",
+        "Tenho diabetes tipo 2, diagnosticada há alguns anos.",
+      ],
+    },
+    {
+      question: "Você tem alergia a algum medicamento?",
+      answers: [
+        "Tenho alergia a dipirona.",
+        "Não tenho alergia a nenhum medicamento que eu conheça.",
+        "Tenho alergia a anti-inflamatórios, causam reação na pele.",
+      ],
+    },
   ],
   "Hábitos de vida": [
-    "Você pratica atividade física com que frequência?",
-    "Você fuma ou consome bebida alcoólica?",
-    "Como é a sua alimentação no dia a dia?",
-    "Como está a sua qualidade de sono?",
+    {
+      question: "Com que frequência você pratica atividade física?",
+      answers: [
+        "Jogo futebol duas a três vezes por semana.",
+        "Faço academia quase todos os dias.",
+        "Pratico atividade física raramente, só aos finais de semana.",
+      ],
+    },
+    {
+      question: "Você faz aquecimento antes de jogar ou treinar?",
+      answers: [
+        "Geralmente faço um aquecimento rápido antes de jogar.",
+        "Quase nunca aqueço antes de começar a atividade.",
+        "Sim, sempre faço alongamento e aquecimento antes de treinar.",
+      ],
+    },
+    {
+      question: "Usa algum tipo de proteção para o joelho durante o esporte?",
+      answers: [
+        "Não uso nenhum tipo de joelheira ou proteção.",
+        "Uso uma joelheira leve às vezes, mas nem sempre.",
+        "Nunca usei proteção para o joelho antes.",
+      ],
+    },
+    {
+      question: "Como está sua alimentação no dia a dia?",
+      answers: [
+        "Minha alimentação é equilibrada, como bem na maioria dos dias.",
+        "Como bastante fora de casa, nem sempre é uma alimentação saudável.",
+        "Sigo uma dieta bem controlada, com acompanhamento nutricional.",
+      ],
+    },
+    {
+      question: "Quantas horas você dorme por noite, em média?",
+      answers: [
+        "Durmo cerca de seis horas por noite.",
+        "Durmo bem, entre sete e oito horas por noite.",
+        "Tenho dormido mal desde a lesão, por causa da dor.",
+      ],
+    },
   ],
 };
 
-// Preenche apenas as perguntas vazias de cada categoria com o template
-// correspondente, respeitando a ordem das linhas já criadas pelo usuário.
-function generateAnamneseQuestions(
-  anamnese: Record<string, { question: string; answerType: string; customAnswer: string }[]>,
-): Record<string, { question: string; answerType: string; customAnswer: string }[]> {
-  const next: typeof anamnese = {};
-  Object.entries(anamnese).forEach(([category, items]) => {
-    const templates = anamneseTemplates[category] ?? [];
-    next[category] = items.map((item, i) =>
-      item.question.trim() === "" && templates[i]
-        ? { ...item, question: templates[i] }
-        : item,
-    );
-  });
-  return next;
+function pickAnamneseQuestion(category: string): string {
+  const entries = anamneseBank[category] ?? [];
+  if (entries.length === 0) return "";
+  return entries[Math.floor(Math.random() * entries.length)].question;
+}
+
+function pickAnamneseAnswer(category: string, question: string): string {
+  const entries = anamneseBank[category] ?? [];
+  const match = entries.find((e) => e.question.trim() === question.trim());
+  const pool = match ? match.answers : entries.flatMap((e) => e.answers);
+  if (pool.length === 0) return "";
+  return pool[Math.floor(Math.random() * pool.length)];
 }
 
 type LibraryItem = {
@@ -258,9 +322,6 @@ type LibraryItem = {
   description: string;
 };
 
-// A hipótese correta carrega os exames que a confirmam e distratores que não
-// deveriam ser pedidos. Uma hipótese incorreta só faz sentido ter distratores
-// — não existe "exame correto" para um diagnóstico que não é o do caso.
 type HipoteseCorreta = {
   texto: string;
   examesCorretos: string[];
@@ -340,8 +401,6 @@ const viasAdministracao = [
   "Retal",
 ];
 
-// Distratores plausíveis para compor prescrições incorretas sem depender de
-// uma API externa: mesma lógica local usada em generateIncorrectHypotheses.
 const distractorMedicamentos: MedicamentoItem[] = [
   {
     nome: "Amoxicilina 500 mg",
@@ -410,8 +469,6 @@ const distractorRetornos = [
   "Retorno em 15 dias, se necessário",
 ];
 
-// Mesma abordagem de generateIncorrectHypotheses: gera alternativas plausíveis
-// a partir da prescrição correta, embaralhando distratores locais.
 function generateIncorrectPrescriptions(correta: PrescricaoData, count: number): PrescricaoData[] {
   const shuffle = <T,>(arr: T[]) => [...arr].sort(() => Math.random() - 0.5);
   const meds = shuffle(distractorMedicamentos);
@@ -570,12 +627,16 @@ function CriarCaso() {
       { id: "g-default", name: "Exames gerais" },
     ] as { id: string; name: string }[],
     diagnostico: {
-      correta: emptyHipoteseCorreta(),
-      incorretas: [emptyHipoteseIncorreta(), emptyHipoteseIncorreta()] as HipoteseIncorreta[],
+      correta: {
+        ...emptyHipoteseCorreta(),
+        texto: "Lesão ligamentar medial",
+        examesCorretos: ["RM"],
+      },
+      incorretas: [emptyHipoteseIncorreta()] as HipoteseIncorreta[],
     },
     prescricao: {
       correta: emptyPrescricao(),
-      incorretas: [emptyPrescricao(), emptyPrescricao()] as PrescricaoData[],
+      incorretas: [emptyPrescricao()] as PrescricaoData[],
     },
   });
 
@@ -629,6 +690,23 @@ function CriarCaso() {
     }));
   };
 
+  const removeQA = (category: string, index: number) => {
+    setForm((prev) => ({
+      ...prev,
+      anamnese: {
+        ...prev.anamnese,
+        [category]: prev.anamnese[category].filter((_, i) => i !== index),
+      },
+    }));
+    setGeneratingAnamneseField((prev) => {
+      const next = { ...prev };
+      Object.keys(next).forEach((key) => {
+        if (key.startsWith(`${category}__`)) delete next[key];
+      });
+      return next;
+    });
+  };
+
   const updateQA = (
     category: string,
     index: number,
@@ -642,13 +720,39 @@ function CriarCaso() {
     });
   };
 
-  const [generatingAnamnese, setGeneratingAnamnese] = useState(false);
-  const handleGenerateAnamnese = () => {
-    setGeneratingAnamnese(true);
+  const [collapsedAnamneseCategories, setCollapsedAnamneseCategories] = useState<Record<string, boolean>>(() =>
+    Object.fromEntries(Object.keys(form.anamnese).map((category) => [category, true])),
+  );
+  const toggleAnamneseCategory = (category: string) => {
+    setCollapsedAnamneseCategories((prev) => ({ ...prev, [category]: !prev[category] }));
+  };
+
+  const [generatingAnamneseField, setGeneratingAnamneseField] = useState<Record<string, boolean>>({});
+  const handleGenerateAnamneseField = (
+    category: string,
+    index: number,
+    field: "question" | "customAnswer",
+  ) => {
+    const key = `${category}__${index}__${field}`;
+    setGeneratingAnamneseField((prev) => ({ ...prev, [key]: true }));
     window.setTimeout(() => {
-      setForm((p) => ({ ...p, anamnese: generateAnamneseQuestions(p.anamnese) }));
-      setGeneratingAnamnese(false);
-    }, 500);
+      setForm((prev) => {
+        const current = prev.anamnese[category]?.[index];
+        if (!current) return prev;
+        const suggestion =
+          field === "question"
+            ? pickAnamneseQuestion(category)
+            : pickAnamneseAnswer(category, current.question);
+        if (!suggestion) return prev;
+        const items = [...prev.anamnese[category]];
+        items[index] =
+          field === "question"
+            ? { ...current, question: suggestion }
+            : { ...current, customAnswer: suggestion, answerType: "" };
+        return { ...prev, anamnese: { ...prev.anamnese, [category]: items } };
+      });
+      setGeneratingAnamneseField((prev) => ({ ...prev, [key]: false }));
+    }, 600 + Math.random() * 500);
   };
 
   const [libraryOpen, setLibraryOpen] = useState(false);
@@ -731,9 +835,6 @@ function CriarCaso() {
     });
   };
 
-  // Cada hipótese (correta ou incorreta) carrega seus próprios exames
-  // aninhados, mas cada tipo tem um shape diferente: só a hipótese correta
-  // tem exames corretos (que a confirmam) — as incorretas só têm distratores.
   const updateHipoteseTexto = (target: "correta" | number, value: string) =>
     setForm((p) => {
       if (target === "correta") {
@@ -797,35 +898,41 @@ function CriarCaso() {
       },
     }));
 
-  const [generatingHipoteses, setGeneratingHipoteses] = useState(false);
-  const handleGenerateIncorrectHypotheses = () => {
-    setGeneratingHipoteses(true);
+  const [generatingHipoteseIncorreta, setGeneratingHipoteseIncorreta] = useState<
+    Record<number, boolean>
+  >({});
+  const handleGenerateHipoteseIncorreta = (index: number) => {
+    setGeneratingHipoteseIncorreta((prev) => ({ ...prev, [index]: true }));
     window.setTimeout(() => {
-      setForm((p) => {
-        const base = p.diagnostico.correta.texto || p.caseDiagnosis;
-        const generated = generateIncorrectHypotheses(base, p.diagnostico.incorretas.length);
-        return {
-          ...p,
-          diagnostico: {
-            ...p.diagnostico,
-            incorretas: p.diagnostico.incorretas.map((h, i) => ({
-              ...h,
-              texto: generated[i] || h.texto,
-            })),
-          },
-        };
-      });
-      setGeneratingHipoteses(false);
-    }, 500);
+      const suggestion =
+        hipoteseIncorretaBank[Math.floor(Math.random() * hipoteseIncorretaBank.length)];
+      updateHipoteseTexto(index, suggestion);
+      setGeneratingHipoteseIncorreta((prev) => ({ ...prev, [index]: false }));
+    }, 600 + Math.random() * 500);
+  };
+
+  const [generatingExameInadequado, setGeneratingExameInadequado] = useState<
+    Record<number, boolean>
+  >({});
+  const handleGenerateExameInadequado = (index: number) => {
+    setGeneratingExameInadequado((prev) => ({ ...prev, [index]: true }));
+    window.setTimeout(() => {
+      const suggestion =
+        examesInadequadosBank[Math.floor(Math.random() * examesInadequadosBank.length)];
+      updateCorretaExame("examesIncorretos", index, suggestion);
+      setGeneratingExameInadequado((prev) => ({ ...prev, [index]: false }));
+    }, 600 + Math.random() * 500);
   };
 
   const [presExpanded, setPresExpanded] = useState<Record<string, boolean>>({
     correta: true,
     "0": false,
-    "1": false,
   });
 
-  type PrescricaoSlot = "correta" | number; // number = índice em incorretas
+  const [collapsedHipoteseSection, setCollapsedHipoteseSection] = useState(true);
+  const [collapsedPrescricaoSection, setCollapsedPrescricaoSection] = useState(true);
+
+  type PrescricaoSlot = "correta" | number;
   const getPrescricao = (slot: PrescricaoSlot): PrescricaoData =>
     slot === "correta" ? form.prescricao.correta : form.prescricao.incorretas[slot];
 
@@ -987,9 +1094,9 @@ function CriarCaso() {
                     key={persona.id}
                     type="button"
                     onClick={() => selectPersona(persona.id)}
-                    className={`group overflow-hidden rounded-xl border bg-white transition-all hover:shadow-md ${selectedPersonaId === persona.id
-                        ? "border-[var(--brand)] ring-1 ring-[var(--brand)] shadow-sm"
-                        : "border-slate-200 hover:border-[var(--brand)]"
+                    className={`group overflow-hidden cursor-pointer rounded-xl border bg-white transition-all hover:shadow-md ${selectedPersonaId === persona.id
+                      ? "border-[var(--brand)] ring-1 ring-[var(--brand)] shadow-sm"
+                      : "border-slate-200 hover:border-[var(--brand)]"
                       }`}
                   >
                     <div className="aspect-[2/3] overflow-hidden bg-slate-100">
@@ -1008,8 +1115,8 @@ function CriarCaso() {
                   type="button"
                   onClick={selectCustomPersona}
                   className={`group overflow-hidden rounded-xl border-2 border-dashed bg-slate-50/50 transition-all hover:bg-white hover:shadow-md ${selectedPersonaId === "custom"
-                      ? "border-[var(--brand)] ring-1 ring-[var(--brand)] shadow-sm bg-white"
-                      : "border-slate-300 hover:border-[var(--brand)]"
+                    ? "border-[var(--brand)] ring-1 ring-[var(--brand)] shadow-sm bg-white"
+                    : "border-slate-300 hover:border-[var(--brand)]"
                     }`}
                 >
                   {customPersonaImage && selectedPersonaId === "custom" ? (
@@ -1122,7 +1229,6 @@ function CriarCaso() {
                       <option value="">Selecione</option>
                       <option value="Feminino">Feminino</option>
                       <option value="Masculino">Masculino</option>
-                      <option value="Não-binário">Não-binário</option>
                       <option value="Outro">Outro</option>
                       <option value="Prefiro não informar">
                         Prefiro não informar
@@ -1157,118 +1263,197 @@ function CriarCaso() {
 
           {current === 2 && (
             <section className="space-y-8">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <h2 className="text-lg font-semibold text-slate-800">
-                    Anamnese
-                  </h2>
-                  <p className="text-sm text-slate-500 mt-1">
-                    Aqui você pode inserir as informações básicas sobre as
-                    perguntas e respostas que o paciente vai dar durante a
-                    anamnese.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={handleGenerateAnamnese}
-                  disabled={generatingAnamnese}
-                  className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-full border border-[var(--brand)]/30 bg-sky-50 text-xs font-semibold text-[var(--brand)] hover:bg-sky-100 transition-colors disabled:opacity-60 disabled:cursor-wait"
-                >
-                  <Sparkles
-                    className={cn("h-3.5 w-3.5", generatingAnamnese && "animate-pulse")}
-                  />
-                  {generatingAnamnese
-                    ? "Gerando com IA..."
-                    : "Gerar perguntas com IA"}
-                </button>
+              <div>
+                <h2 className="text-lg font-semibold text-slate-800">
+                  Anamnese
+                </h2>
+                <p className="text-sm text-slate-500 mt-1">
+                  Aqui você pode inserir as informações básicas sobre as
+                  perguntas e respostas que o paciente vai dar durante a
+                  anamnese.
+                </p>
               </div>
 
-              {Object.entries(form.anamnese).map(([category, items]) => (
-                <div
-                  key={category}
-                  className="border border-slate-200 rounded-lg p-5 space-y-4"
-                >
-                  <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-700">
-                    {category}
-                  </h3>
-
-                  <div className="space-y-3">
-                    {items.map((item, index) => (
-                      <div
-                        key={index}
-                        className="grid grid-cols-1 md:grid-cols-2 gap-3 items-start"
+              <TooltipProvider delayDuration={200}>
+                {Object.entries(form.anamnese).map(([category, items]) => {
+                  const collapsed = !!collapsedAnamneseCategories[category];
+                  return (
+                    <div
+                      key={category}
+                      className="border border-slate-200 rounded-lg p-5 space-y-4"
+                    >
+                      <button
+                        type="button"
+                        onClick={() => toggleAnamneseCategory(category)}
+                        className="flex w-full items-center justify-between gap-3 -m-5 p-5 text-left hover:bg-slate-50/60 transition-colors rounded-lg"
                       >
-                        <Field
-                          label={index === 0 ? "Título da pergunta" : undefined}
-                        >
-                          <input
-                            type="text"
-                            value={item.question}
-                            onChange={(e) =>
-                              updateQA(category, index, "question", e.target.value)
-                            }
-                            placeholder="Ex.: Onde fica a dor?"
-                            className="input"
-                          />
-                        </Field>
-                        <Field
-                          label={index === 0 ? "Resposta do paciente" : undefined}
-                        >
-                          <textarea
-                            value={item.customAnswer}
-                            onChange={(e) => {
-                              updateQA(category, index, "customAnswer", e.target.value);
-                              if (item.answerType) {
-                                updateQA(category, index, "answerType", "");
-                              }
-                            }}
-                            rows={1}
-                            placeholder="Digite a resposta do paciente"
-                            className="input h-11 py-2 resize-y"
-                          />
-                          <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                            <span className="text-xs text-slate-400 mr-1">
-                              Respostas rápidas:
-                            </span>
-                            {[
-                              { value: "sim", label: "Sim" },
-                              { value: "nao", label: "Não" },
-                              { value: "nao-me-lembro", label: "Não me lembro..." },
-                            ].map((opt) => {
-                              const active = item.answerType === opt.value;
+                        <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-700">
+                          {category}
+                        </h3>
+                        {collapsed ? (
+                          <ChevronDown className="h-4 w-4 text-slate-400 shrink-0" />
+                        ) : (
+                          <ChevronUp className="h-4 w-4 text-slate-400 shrink-0" />
+                        )}
+                      </button>
+
+                      {!collapsed && (
+                        <>
+                          <div className="space-y-3">
+                            {items.map((item, index) => {
+                              const generatingQuestion =
+                                !!generatingAnamneseField[`${category}__${index}__question`];
+                              const generatingAnswer =
+                                !!generatingAnamneseField[`${category}__${index}__customAnswer`];
                               return (
-                                <button
-                                  key={opt.value}
-                                  type="button"
-                                  onClick={() => {
-                                    updateQA(category, index, "answerType", opt.value);
-                                    updateQA(category, index, "customAnswer", opt.label);
-                                  }}
-                                  className={`h-7 px-2.5 rounded-full text-xs border transition-colors ${active
-                                      ? "border-[var(--brand)] bg-sky-50 text-[var(--brand)]"
-                                      : "border-slate-200 text-slate-600 hover:border-[var(--brand)] hover:text-[var(--brand)]"
-                                    }`}
+                                <div
+                                  key={index}
+                                  className="grid grid-cols-1 md:grid-cols-[1fr_1fr_auto] gap-3 items-start mt-4"
                                 >
-                                  {opt.label}
-                                </button>
+                                  <Field
+                                    label={index === 0 ? "Título da pergunta" : undefined}
+                                  >
+                                    <div className="relative">
+                                      <input
+                                        type="text"
+                                        value={item.question}
+                                        onChange={(e) =>
+                                          updateQA(category, index, "question", e.target.value)
+                                        }
+                                        placeholder="Ex.: Onde fica a dor?"
+                                        className="input input-with-icon"
+                                      />
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <button
+                                            type="button"
+                                            onClick={() =>
+                                              handleGenerateAnamneseField(category, index, "question")
+                                            }
+                                            disabled={generatingQuestion}
+                                            className="absolute right-2 top-1/2 -translate-y-1/2 inline-flex items-center justify-center h-6 w-6 rounded-full text-[var(--brand)] hover:bg-sky-50 transition-colors disabled:cursor-wait"
+                                          >
+                                            <Sparkles
+                                              className={cn(
+                                                "h-4 w-4",
+                                                generatingQuestion && "animate-pulse",
+                                              )}
+                                            />
+                                          </button>
+                                        </TooltipTrigger>
+                                        <TooltipContent side="top">
+                                          Gerar pergunta com IA
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    </div>
+                                  </Field>
+                                  <Field
+                                    label={index === 0 ? "Resposta do paciente" : undefined}
+                                  >
+                                    <div className="relative">
+                                      <textarea
+                                        value={item.customAnswer}
+                                        onChange={(e) => {
+                                          updateQA(category, index, "customAnswer", e.target.value);
+                                          if (item.answerType) {
+                                            updateQA(category, index, "answerType", "");
+                                          }
+                                        }}
+                                        rows={1}
+                                        placeholder="Digite a resposta do paciente"
+                                        className="input input-with-icon h-11 py-2 resize-y"
+                                      />
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <button
+                                            type="button"
+                                            onClick={() =>
+                                              handleGenerateAnamneseField(category, index, "customAnswer")
+                                            }
+                                            disabled={generatingAnswer}
+                                            className="absolute right-2 top-2.5 inline-flex items-center justify-center h-6 w-6 rounded-full text-[var(--brand)] hover:bg-sky-50 transition-colors disabled:cursor-wait"
+                                          >
+                                            <Sparkles
+                                              className={cn(
+                                                "h-4 w-4",
+                                                generatingAnswer && "animate-pulse",
+                                              )}
+                                            />
+                                          </button>
+                                        </TooltipTrigger>
+                                        <TooltipContent side="top">
+                                          Gerar resposta com IA
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    </div>
+                                    <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                                      <span className="text-xs text-slate-400 mr-1">
+                                        Respostas rápidas:
+                                      </span>
+                                      {[
+                                        { value: "sim", label: "Sim" },
+                                        { value: "nao", label: "Não" },
+                                        { value: "nao-me-lembro", label: "Não me lembro..." },
+                                      ].map((opt) => {
+                                        const active = item.answerType === opt.value;
+                                        return (
+                                          <button
+                                            key={opt.value}
+                                            type="button"
+                                            onClick={() => {
+                                              updateQA(category, index, "answerType", opt.value);
+                                              updateQA(category, index, "customAnswer", opt.label);
+                                            }}
+                                            className={`h-7 px-2.5 rounded-full text-xs border transition-colors ${active
+                                              ? "border-[var(--brand)] bg-sky-50 text-[var(--brand)]"
+                                              : "border-slate-200 text-slate-600 hover:border-[var(--brand)] hover:text-[var(--brand)]"
+                                              }`}
+                                          >
+                                            {opt.label}
+                                          </button>
+                                        );
+                                      })}
+                                    </div>
+                                  </Field>
+                                  <div className="flex flex-col">
+                                    {index === 0 && (
+                                      <span className="block text-sm font-medium mb-1.5 invisible">
+                                        Excluir
+                                      </span>
+                                    )}
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <button
+                                          type="button"
+                                          onClick={() => removeQA(category, index)}
+                                          disabled={items.length <= 1}
+                                          className="inline-flex items-center justify-center h-11 w-11 rounded-full text-red-500 hover:bg-red-50 transition-colors disabled:opacity-30 disabled:pointer-events-none"
+                                        >
+                                          <Trash2 className="h-5 w-5" />
+                                        </button>
+                                      </TooltipTrigger>
+                                      <TooltipContent side="top">Excluir</TooltipContent>
+                                    </Tooltip>
+                                  </div>
+                                </div>
                               );
                             })}
                           </div>
-                        </Field>
-                      </div>
-                    ))}
-                  </div>
 
-                  <button
-                    type="button"
-                    onClick={() => addQA(category)}
-                    className="inline-flex items-center gap-2 h-9 px-4 rounded border border-[var(--brand)] text-sm font-medium text-[var(--brand)] hover:bg-[var(--brand)] hover:text-white transition-colors"
-                  >
-                    <Plus className="h-4 w-4" />
-                    Adicionar pergunta e resposta
-                  </button>
-                </div>
-              ))}
+                          <button
+                            type="button"
+                            onClick={() => addQA(category)}
+                            className="inline-flex items-center gap-2 h-9 px-4 rounded border border-[var(--brand)] text-sm font-medium text-[var(--brand)] hover:bg-[var(--brand)] hover:text-white transition-colors"
+                          >
+                            <Plus className="h-4 w-4" />
+                            Adicionar pergunta e resposta
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  );
+                })}
+              </TooltipProvider>
             </section>
           )}
 
@@ -1435,8 +1620,8 @@ function CriarCaso() {
                                             })
                                           }
                                           className={`h-9 px-4 rounded-full text-sm border transition-colors ${active
-                                              ? "border-[var(--brand)] bg-sky-50 text-[var(--brand)]"
-                                              : "border-slate-200 text-slate-600 hover:border-[var(--brand)] hover:text-[var(--brand)]"
+                                            ? "border-[var(--brand)] bg-sky-50 text-[var(--brand)]"
+                                            : "border-slate-200 text-slate-600 hover:border-[var(--brand)] hover:text-[var(--brand)]"
                                             }`}
                                         >
                                           {opt.label}
@@ -1522,162 +1707,148 @@ function CriarCaso() {
 
               {/* Hipótese diagnóstica + exames aninhados */}
               <div className="border border-slate-200 rounded-lg p-5 space-y-5">
-                <div className="flex flex-wrap items-start justify-between gap-3">
+                <button
+                  type="button"
+                  onClick={() => setCollapsedHipoteseSection((prev) => !prev)}
+                  className="flex w-full items-center justify-between gap-3 -m-5 p-5 text-left hover:bg-slate-50/60 transition-colors rounded-lg"
+                >
                   <div>
                     <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-700">
                       Hipótese diagnóstica
                     </h3>
-                    <p className="text-xs text-slate-500 mt-1">
+                    <p className="text-xs text-slate-500 mt-1 ">
                       Cada hipótese leva seus próprios exames: ao ser
                       selecionada durante a execução do caso, os exames
                       aparecem logo em seguida.
                     </p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={handleGenerateIncorrectHypotheses}
-                    disabled={generatingHipoteses}
-                    className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-full border border-[var(--brand)]/30 bg-sky-50 text-xs font-semibold text-[var(--brand)] hover:bg-sky-100 transition-colors disabled:opacity-60 disabled:cursor-wait"
-                  >
-                    <Sparkles
-                      className={cn("h-3.5 w-3.5", generatingHipoteses && "animate-pulse")}
-                    />
-                    {generatingHipoteses
-                      ? "Gerando com IA..."
-                      : "Gerar hipóteses incorretas com IA"}
-                  </button>
-                </div>
-
-                <HipoteseCard
-                  title="Hipótese correta"
-                  accent
-                  texto={form.diagnostico.correta.texto}
-                  placeholder="Ex.: Infarto agudo do miocárdio"
-                  onChangeTexto={(v) => updateHipoteseTexto("correta", v)}
-                  examesCorretos={{
-                    values: form.diagnostico.correta.examesCorretos,
-                    onChange: (i, v) => updateCorretaExame("examesCorretos", i, v),
-                    onAdd: () => addCorretaExame("examesCorretos"),
-                    onRemove: (i) => removeCorretaExame("examesCorretos", i),
-                  }}
-                  examesIncorretos={{
-                    values: form.diagnostico.correta.examesIncorretos,
-                    onChange: (i, v) => updateCorretaExame("examesIncorretos", i, v),
-                    onAdd: () => addCorretaExame("examesIncorretos"),
-                    onRemove: (i) => removeCorretaExame("examesIncorretos", i),
-                  }}
-                />
-
-                <div className="space-y-4">
-                  {form.diagnostico.incorretas.map((hip, i) => (
-                    <HipoteseCard
-                      key={i}
-                      title={`Hipótese incorreta ${i + 1}`}
-                      texto={hip.texto}
-                      placeholder={`Ex.: Alternativa incorreta ${i + 1}`}
-                      onChangeTexto={(v) => updateHipoteseTexto(i, v)}
-                      onRemoveHipotese={
-                        form.diagnostico.incorretas.length > 2
-                          ? () => removeDiagIncorreta(i)
-                          : undefined
-                      }
-                    />
-                  ))}
-                </div>
-
-                <button
-                  type="button"
-                  onClick={addDiagIncorreta}
-                  className="inline-flex items-center gap-2 h-9 px-4 rounded border border-[var(--brand)] text-sm font-medium text-[var(--brand)] hover:bg-[var(--brand)] hover:text-white transition-colors"
-                >
-                  <Plus className="h-4 w-4" />
-                  Adicionar hipótese incorreta
+                  {collapsedHipoteseSection ? (
+                    <ChevronDown className="h-4 w-4 text-slate-400 shrink-0" />
+                  ) : (
+                    <ChevronUp className="h-4 w-4 text-slate-400 shrink-0" />
+                  )}
                 </button>
+
+                {!collapsedHipoteseSection && (
+                  <>
+                    <TooltipProvider delayDuration={200}>
+                      <HipoteseCard
+                        title="Hipótese adequada"
+                        accent
+                        texto={form.diagnostico.correta.texto}
+                        placeholder="Ex.: Infarto agudo do miocárdio"
+                        onChangeTexto={(v) => updateHipoteseTexto("correta", v)}
+                        examesCorretos={{
+                          values: form.diagnostico.correta.examesCorretos,
+                          onChange: (i, v) => updateCorretaExame("examesCorretos", i, v),
+                          onAdd: () => addCorretaExame("examesCorretos"),
+                          onRemove: (i) => removeCorretaExame("examesCorretos", i),
+                        }}
+                        examesIncorretos={{
+                          values: form.diagnostico.correta.examesIncorretos,
+                          onChange: (i, v) => updateCorretaExame("examesIncorretos", i, v),
+                          onAdd: () => addCorretaExame("examesIncorretos"),
+                          onRemove: (i) => removeCorretaExame("examesIncorretos", i),
+                          onGenerateItem: handleGenerateExameInadequado,
+                          generatingIndex: generatingExameInadequado,
+                        }}
+                      />
+
+                      <div className="space-y-4">
+                        {form.diagnostico.incorretas.map((hip, i) => (
+                          <HipoteseCard
+                            key={i}
+                            title={`Hipótese inadequada`}
+                            texto={hip.texto}
+                            placeholder={`Ex.: Alternativa inadequada ${i + 1}`}
+                            onChangeTexto={(v) => updateHipoteseTexto(i, v)}
+                            onRemoveHipotese={() => removeDiagIncorreta(i)}
+                            removeDisabled={form.diagnostico.incorretas.length <= 1}
+                            onGenerateTexto={() => handleGenerateHipoteseIncorreta(i)}
+                            generatingTexto={!!generatingHipoteseIncorreta[i]}
+                          />
+                        ))}
+                      </div>
+                    </TooltipProvider>
+
+                    <button
+                      type="button"
+                      onClick={addDiagIncorreta}
+                      className="inline-flex items-center gap-2 h-9 px-4 rounded border border-[var(--brand)] text-sm font-medium text-[var(--brand)] hover:bg-[var(--brand)] hover:text-white transition-colors"
+                    >
+                      <Plus className="h-4 w-4" />
+                      Adicionar hipótese inadequada
+                    </button>
+                  </>
+                )}
               </div>
 
               {/* Prescrição */}
               <div className="border border-slate-200 rounded-lg p-5 space-y-6">
-                <div>
-                  <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-700">
-                    Prescrição
-                  </h3>
-                  <p className="text-xs text-slate-500 mt-1">
-                    Defina a prescrição correta e as prescrições incorretas.
-                    Você pode gerar cada alternativa incorreta com IA a partir
-                    da correta.
-                  </p>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-slate-50 border border-slate-100 rounded-md p-4">
+                <button
+                  type="button"
+                  onClick={() => setCollapsedPrescricaoSection((prev) => !prev)}
+                  className="flex w-full items-center justify-between gap-3 -m-5 p-5 text-left hover:bg-slate-50/60 transition-colors rounded-lg"
+                >
                   <div>
-                    <span className="block text-xs font-medium text-slate-500 uppercase tracking-wide">
-                      Paciente
-                    </span>
-                    <span className="block text-sm text-slate-800 mt-1">
-                      {form.personaName || "—"}
-                    </span>
+                    <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-700">
+                      Prescrição
+                    </h3>
+                    <p className="text-xs text-slate-500 mt-1">
+                      Defina a prescrição correta e as prescrições incorretas.
+                      Você pode gerar cada alternativa incorreta com IA a partir
+                      da correta.
+                    </p>
                   </div>
-                  <div>
-                    <span className="block text-xs font-medium text-slate-500 uppercase tracking-wide">
-                      Idade
-                    </span>
-                    <span className="block text-sm text-slate-800 mt-1">
-                      {form.personaAge ? `${form.personaAge} anos` : "—"}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="block text-xs font-medium text-slate-500 uppercase tracking-wide">
-                      Peso
-                    </span>
-                    <span className="block text-sm text-slate-800 mt-1">
-                      {form.personaWeight ? `${form.personaWeight} kg` : "—"}
-                    </span>
-                  </div>
-                </div>
-                <p className="text-xs text-slate-400 -mt-2">
-                  Dados carregados da primeira etapa.
-                </p>
+                  {collapsedPrescricaoSection ? (
+                    <ChevronDown className="h-4 w-4 text-slate-400 shrink-0" />
+                  ) : (
+                    <ChevronUp className="h-4 w-4 text-slate-400 shrink-0" />
+                  )}
+                </button>
 
-                <PrescricaoEditor
-                  slot="correta"
-                  data={form.prescricao.correta}
-                  title="Prescrição adequada"
-                  badge="Correta"
-                  badgeClass="bg-emerald-50 text-emerald-700 border-emerald-200"
-                  expanded={presExpanded["correta"] ?? false}
-                  onToggleExpanded={() =>
-                    setPresExpanded((prev) => ({ ...prev, correta: !prev.correta }))
-                  }
-                  onUpdateMed={updateMed}
-                  onAddMed={addMed}
-                  onRemoveMed={removeMed}
-                  onUpdateProc={updateProc}
-                  onAddProc={addProc}
-                  onRemoveProc={removeProc}
-                  onUpdateField={updatePresField}
-                  onToggleFlag={togglePresFlag}
-                />
+                {!collapsedPrescricaoSection && (
+                  <>
+                    <div className="grid grid-cols-1 md:grid-cols-3 mt-2 gap-4 bg-slate-50 border border-slate-100 rounded-md p-4">
+                      <div>
+                        <span className="block text-xs font-medium text-slate-500 uppercase tracking-wide">
+                          Paciente
+                        </span>
+                        <span className="block text-sm text-slate-800 mt-1">
+                          {form.personaName || "—"}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="block text-xs font-medium text-slate-500 uppercase tracking-wide">
+                          Idade
+                        </span>
+                        <span className="block text-sm text-slate-800 mt-1">
+                          {form.personaAge ? `${form.personaAge} anos` : "—"}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="block text-xs font-medium text-slate-500 uppercase tracking-wide">
+                          Peso
+                        </span>
+                        <span className="block text-sm text-slate-800 mt-1">
+                          {form.personaWeight ? `${form.personaWeight} kg` : "—"}
+                        </span>
+                      </div>
+                    </div>
+                    <p className="text-xs text-slate-400 mt-2">
+                      Dados carregados da primeira etapa.
+                    </p>
 
-                <div className="space-y-4">
-                  {form.prescricao.incorretas.map((pres, i) => (
                     <PrescricaoEditor
-                      key={i}
-                      slot={i}
-                      data={pres}
-                      title={`Prescrição inadequada ${i + 1}`}
-                      badge="Incorreta"
-                      badgeClass="bg-rose-50 text-rose-700 border-rose-200"
-                      expanded={presExpanded[String(i)] ?? false}
+                      slot="correta"
+                      data={form.prescricao.correta}
+                      title="Prescrição adequada"
+                      badge="Correta"
+                      badgeClass="bg-emerald-50 text-emerald-700 border-emerald-200"
+                      expanded={presExpanded["correta"] ?? false}
                       onToggleExpanded={() =>
-                        setPresExpanded((prev) => ({ ...prev, [String(i)]: !prev[String(i)] }))
+                        setPresExpanded((prev) => ({ ...prev, correta: !prev.correta }))
                       }
-                      onRemove={
-                        form.prescricao.incorretas.length > 1
-                          ? () => removePrescricaoIncorreta(i)
-                          : undefined
-                      }
-                      onAutoGenerate={() => handleGenerateWrongPrescription(i)}
-                      generating={generatingWrongIdx === i}
                       onUpdateMed={updateMed}
                       onAddMed={addMed}
                       onRemoveMed={removeMed}
@@ -1687,17 +1858,49 @@ function CriarCaso() {
                       onUpdateField={updatePresField}
                       onToggleFlag={togglePresFlag}
                     />
-                  ))}
-                </div>
 
-                <button
-                  type="button"
-                  onClick={addPrescricaoIncorreta}
-                  className="inline-flex items-center gap-2 h-9 px-4 rounded border border-[var(--brand)] text-sm font-medium text-[var(--brand)] hover:bg-[var(--brand)] hover:text-white transition-colors"
-                >
-                  <Plus className="h-4 w-4" />
-                  Adicionar prescrição incorreta
-                </button>
+                    <div className="space-y-4">
+                      {form.prescricao.incorretas.map((pres, i) => (
+                        <PrescricaoEditor
+                          key={i}
+                          slot={i}
+                          data={pres}
+                          title={`Prescrição inadequada`}
+                          badge="Incorreta"
+                          badgeClass="bg-rose-50 text-rose-700 border-rose-200"
+                          expanded={presExpanded[String(i)] ?? false}
+                          onToggleExpanded={() =>
+                            setPresExpanded((prev) => ({ ...prev, [String(i)]: !prev[String(i)] }))
+                          }
+                          onRemove={
+                            form.prescricao.incorretas.length > 1
+                              ? () => removePrescricaoIncorreta(i)
+                              : undefined
+                          }
+                          onAutoGenerate={() => handleGenerateWrongPrescription(i)}
+                          generating={generatingWrongIdx === i}
+                          onUpdateMed={updateMed}
+                          onAddMed={addMed}
+                          onRemoveMed={removeMed}
+                          onUpdateProc={updateProc}
+                          onAddProc={addProc}
+                          onRemoveProc={removeProc}
+                          onUpdateField={updatePresField}
+                          onToggleFlag={togglePresFlag}
+                        />
+                      ))}
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={addPrescricaoIncorreta}
+                      className="inline-flex items-center gap-2 h-9 px-4 rounded border border-[var(--brand)] text-sm font-medium text-[var(--brand)] hover:bg-[var(--brand)] hover:text-white transition-colors"
+                    >
+                      <Plus className="h-4 w-4" />
+                      Adicionar prescrição incorreta
+                    </button>
+                  </>
+                )}
               </div>
             </section>
           )}
@@ -1765,6 +1968,7 @@ function CriarCaso() {
         }
         textarea.input { height: auto; padding: 10px 12px; }
         .input:focus { border-color: var(--brand); }
+        .input.input-with-icon { padding-right: 40px; }
       `}</style>
     </div>
   );
@@ -1842,17 +2046,22 @@ function DiagnosisCombobox({
 function Field({
   label,
   required,
+  badge,
   children,
 }: {
   label?: string;
   required?: boolean;
+  badge?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
     <label className="block">
       {label && (
-        <span className="block text-sm font-medium text-slate-700 mb-1.5">
-          {label} {required && <span className="text-[var(--brand)]">*</span>}
+        <span className="flex items-center gap-2 mb-1.5">
+          {badge}
+          <span className="text-sm font-medium text-slate-700">
+            {label} {required && <span className="text-[var(--brand)]">*</span>}
+          </span>
         </span>
       )}
       {children}
@@ -1860,44 +2069,91 @@ function Field({
   );
 }
 
+function CorretaBadge({ correct }: { correct: boolean }) {
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center h-6 px-2 rounded-full border text-[11px] font-medium shrink-0",
+        correct
+          ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+          : "bg-rose-50 text-rose-700 border-rose-200",
+      )}
+    >
+      {correct ? "Correta" : "Incorreta"}
+    </span>
+  );
+}
+
 function ExamListEditor({
   label,
+  badge,
   values,
   placeholder,
   addLabel,
   onChange,
   onAdd,
   onRemove,
+  onGenerateItem,
+  generatingIndex,
 }: {
   label: string;
+  badge?: React.ReactNode;
   values: string[];
   placeholder: string;
   addLabel: string;
   onChange: (index: number, value: string) => void;
   onAdd: () => void;
   onRemove: (index: number) => void;
+  onGenerateItem?: (index: number) => void;
+  generatingIndex?: Record<number, boolean>;
 }) {
   return (
     <div className="space-y-2.5">
-      <span className="block text-xs font-medium text-slate-500">{label}</span>
+      <span className="flex items-center gap-2">
+        {badge}
+        <span className="text-xs font-medium text-slate-500">{label}</span>
+      </span>
       {values.map((v, i) => (
         <div key={i} className="flex gap-2">
-          <input
-            type="text"
-            value={v}
-            onChange={(e) => onChange(i, e.target.value)}
-            placeholder={placeholder}
-            className="input h-10 text-sm"
-          />
-          {values.length > 1 && (
-            <button
-              type="button"
-              onClick={() => onRemove(i)}
-              className="inline-flex items-center justify-center h-10 w-10 shrink-0 rounded border border-slate-200 text-slate-500 hover:text-red-600"
-            >
-              <Trash2 className="h-4 w-4" />
-            </button>
-          )}
+          <div className="relative flex-1">
+            <input
+              type="text"
+              value={v}
+              onChange={(e) => onChange(i, e.target.value)}
+              placeholder={placeholder}
+              className={cn("input h-10 text-sm", onGenerateItem && "input-with-icon")}
+            />
+            {onGenerateItem && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={() => onGenerateItem(i)}
+                    disabled={!!generatingIndex?.[i]}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 inline-flex items-center justify-center h-6 w-6 rounded-full text-[var(--brand)] hover:bg-sky-50 transition-colors disabled:cursor-wait"
+                  >
+                    <Sparkles
+                      className={cn("h-4 w-4", generatingIndex?.[i] && "animate-pulse")}
+                    />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="top">Gerar exame com IA</TooltipContent>
+              </Tooltip>
+            )}
+          </div>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                onClick={() => onRemove(i)}
+                disabled={values.length <= 1}
+                className="inline-flex items-center justify-center h-10 w-10 shrink-0 rounded-full text-red-500 hover:bg-red-50 transition-colors disabled:opacity-30 disabled:pointer-events-none"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="top">Excluir</TooltipContent>
+          </Tooltip>
         </div>
       ))}
       <button
@@ -1917,6 +2173,8 @@ type ExamListProps = {
   onChange: (index: number, value: string) => void;
   onAdd: () => void;
   onRemove: (index: number) => void;
+  onGenerateItem?: (index: number) => void;
+  generatingIndex?: Record<number, boolean>;
 };
 
 function HipoteseCard({
@@ -1926,6 +2184,9 @@ function HipoteseCard({
   accent,
   onChangeTexto,
   onRemoveHipotese,
+  removeDisabled,
+  onGenerateTexto,
+  generatingTexto,
   examesCorretos,
   examesIncorretos,
 }: {
@@ -1935,39 +2196,63 @@ function HipoteseCard({
   accent?: boolean;
   onChangeTexto: (value: string) => void;
   onRemoveHipotese?: () => void;
-  // Só a hipótese correta recebe exames: não existe exame que confirme ou
-  // descarte um diagnóstico que não é o do caso.
+  removeDisabled?: boolean;
+  onGenerateTexto?: () => void;
+  generatingTexto?: boolean;
   examesCorretos?: ExamListProps;
   examesIncorretos?: ExamListProps;
 }) {
   return (
     <div
       className={cn(
-        "rounded-lg border p-4 space-y-4",
+        "rounded-lg border p-4 space-y-4 mt-2",
         accent ? "border-[var(--brand)]/30 bg-sky-50/40" : "border-slate-200",
       )}
     >
       <div className="flex items-start gap-2">
         <div className="flex-1">
-          <Field label={title} required={accent}>
-            <input
-              type="text"
-              value={texto}
-              onChange={(e) => onChangeTexto(e.target.value)}
-              placeholder={placeholder}
-              className="input"
-            />
+          <Field label={title} required={accent} badge={<CorretaBadge correct={!!accent} />}>
+            <div className="relative">
+              <input
+                type="text"
+                value={texto}
+                onChange={(e) => onChangeTexto(e.target.value)}
+                placeholder={placeholder}
+                className={cn("input", onGenerateTexto && "input-with-icon")}
+              />
+              {onGenerateTexto && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      onClick={onGenerateTexto}
+                      disabled={generatingTexto}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 inline-flex items-center justify-center h-6 w-6 rounded-full text-[var(--brand)] hover:bg-sky-50 transition-colors disabled:cursor-wait"
+                    >
+                      <Sparkles className={cn("h-4 w-4", generatingTexto && "animate-pulse")} />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top">Gerar hipótese com IA</TooltipContent>
+                </Tooltip>
+              )}
+            </div>
           </Field>
         </div>
         {onRemoveHipotese && (
-          <button
-            type="button"
-            onClick={onRemoveHipotese}
-            aria-label="Remover hipótese"
-            className="mt-7 inline-flex h-11 w-11 shrink-0 items-center justify-center rounded border border-slate-200 text-slate-500 hover:text-red-600"
-          >
-            <Trash2 className="h-4 w-4" />
-          </button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                onClick={onRemoveHipotese}
+                disabled={removeDisabled}
+                aria-label="Remover hipótese"
+                className="mt-7 inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-red-500 hover:bg-red-50 transition-colors disabled:opacity-30 disabled:pointer-events-none"
+              >
+                <Trash2 className="h-5 w-5" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="top">Excluir</TooltipContent>
+          </Tooltip>
         )}
       </div>
 
@@ -1978,17 +2263,19 @@ function HipoteseCard({
           </span>
           {examesCorretos && (
             <ExamListEditor
-              label="Exames corretos"
+              label="Exames adequados"
+              badge={<CorretaBadge correct />}
               placeholder="Ex.: ECG de 12 derivações"
-              addLabel="Adicionar exame correto"
+              addLabel="Adicionar exame adequado"
               {...examesCorretos}
             />
           )}
           {examesIncorretos && (
             <ExamListEditor
-              label="Exames incorretos"
+              label="Exames inadequados"
+              badge={<CorretaBadge correct={false} />}
               placeholder="Ex.: Alternativa não indicada"
-              addLabel="Adicionar exame incorreto"
+              addLabel="Adicionar exame inadequado"
               {...examesIncorretos}
             />
           )}
@@ -2068,7 +2355,7 @@ function PrescricaoEditor({
               className="inline-flex items-center gap-2 h-8 px-3 rounded border border-[var(--brand)] text-xs font-medium text-[var(--brand)] hover:bg-[var(--brand)] hover:text-white transition-colors disabled:opacity-60 disabled:cursor-wait"
             >
               <Sparkles className={cn("h-3.5 w-3.5", generating && "animate-pulse")} />
-              {generating ? "Gerando com IA..." : "Gerar automaticamente"}
+              {generating ? "Gerando com IA..." : "Gerar com IA"}
             </button>
           )}
           {onRemove && (
@@ -2339,20 +2626,20 @@ function Stepper({
             >
               <span
                 className={`h-9 w-9 rounded-full flex items-center justify-center text-sm font-semibold border-2 transition-colors ${done
-                    ? "bg-[var(--brand)] border-[var(--brand)] text-white"
-                    : active
-                      ? "bg-white border-[var(--brand)] text-[var(--brand)]"
-                      : "bg-white border-slate-300 text-slate-400"
+                  ? "bg-[var(--brand)] border-[var(--brand)] text-white"
+                  : active
+                    ? "bg-white border-[var(--brand)] text-[var(--brand)]"
+                    : "bg-white border-slate-300 text-slate-400"
                   }`}
               >
                 {done ? <Check className="h-4 w-4" /> : i + 1}
               </span>
               <span
                 className={`text-xs text-center max-w-[120px] ${active
-                    ? "text-[var(--brand)] font-medium"
-                    : done
-                      ? "text-slate-700"
-                      : "text-slate-400"
+                  ? "text-[var(--brand)] font-medium"
+                  : done
+                    ? "text-slate-700"
+                    : "text-slate-400"
                   }`}
               >
                 {label}
@@ -2471,8 +2758,8 @@ function LibraryModal({
                     <div
                       key={item.id}
                       className={`flex items-center gap-3 rounded-lg border px-3 py-2.5 transition-colors cursor-pointer ${selected
-                          ? "border-[var(--brand)] ring-1 ring-[var(--brand)]"
-                          : "border-slate-200 hover:border-slate-300"
+                        ? "border-[var(--brand)] ring-1 ring-[var(--brand)]"
+                        : "border-slate-200 hover:border-slate-300"
                         }`}
                       onClick={() => setPreviewId(item.id)}
                     >

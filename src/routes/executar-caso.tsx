@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import {
   AlertTriangle,
+  ArrowLeft,
   Check,
   CheckCircle2,
   ClipboardList,
@@ -194,7 +195,7 @@ function ExecutarCaso() {
   const [player, setPlayer] = useState({ src: loopVideo, nonce: 0 });
   const [activePanel, setActivePanel] = useState<PanelKey | null>(null);
   const [pausedPanel, setPausedPanel] = useState<PanelKey | null>(null);
-  const [anamneseSection, setAnamneseSection] = useState("queixa-principal");
+  const [anamneseSection, setAnamneseSection] = useState("");
   const [jerkDone, setJerkDone] = useState(false);
   const [condutaStep, setCondutaStep] = useState<"hipotese" | "exames" | "conduta">("hipotese");
   const [hipotese, setHipotese] = useState<string | null>(null);
@@ -240,6 +241,14 @@ function ExecutarCaso() {
       incorrectTitle: "Reveja sua solicitação",
       description: exame.message,
       onProsseguir: exame.correct ? () => setCondutaStep("conduta") : undefined,
+    });
+  };
+
+  const handleVoltarConduta = () => {
+    setCondutaStep((current) => {
+      if (current === "conduta") return "exames";
+      if (current === "exames") return "hipotese";
+      return current;
     });
   };
 
@@ -366,6 +375,7 @@ function ExecutarCaso() {
             condutaTab={condutaTab}
             onCondutaTabChange={setCondutaTab}
             onSubmitConduta={handleSubmitConduta}
+            onVoltar={handleVoltarConduta}
           />
         )}
         {activePanel === "respostas" && (
@@ -429,18 +439,32 @@ function PanelHeader({
   title,
   subtitle,
   onClose,
+  onBack,
 }: {
   title: string;
   subtitle: string;
   onClose: () => void;
+  onBack?: () => void;
 }) {
   return (
     <div className="flex items-start justify-between px-6 pt-6 pb-4">
-      <div>
-        <h2 className="text-lg font-semibold uppercase tracking-wide text-[var(--brand)]">
-          {title}
-        </h2>
-        <p className="mt-1 text-sm text-white/60">{subtitle}</p>
+      <div className="flex items-start gap-3">
+        {onBack && (
+          <button
+            type="button"
+            onClick={onBack}
+            aria-label="Voltar ao passo anterior"
+            className="mt-1 text-white/60 hover:text-white"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </button>
+        )}
+        <div>
+          <h2 className="text-lg font-semibold uppercase tracking-wide text-[var(--brand)]">
+            {title}
+          </h2>
+          <p className="mt-1 text-sm text-white/60">{subtitle}</p>
+        </div>
       </div>
       <button
         type="button"
@@ -594,7 +618,7 @@ function ExameFisicoPanel({
         subtitle="Realize os exames necessários"
         onClose={onClose}
       />
-      <Accordion type="single" collapsible defaultValue="especialidades" className="px-6">
+      <Accordion type="single" collapsible className="px-6">
         <AccordionItem value="especialidades" className="border-white/10">
           <AccordionTrigger className="text-sm font-semibold uppercase tracking-wide text-white">
             Exame físico e especialidades
@@ -624,6 +648,7 @@ function CondutaPanel({
   condutaTab,
   onCondutaTabChange,
   onSubmitConduta,
+  onVoltar,
 }: {
   onClose: () => void;
   step: "hipotese" | "exames" | "conduta";
@@ -633,6 +658,7 @@ function CondutaPanel({
   condutaTab: string;
   onCondutaTabChange: (id: string) => void;
   onSubmitConduta: (opcao: (typeof condutaOpcoes)[number]) => void;
+  onVoltar: () => void;
 }) {
   return (
     <div className="flex h-full flex-col overflow-y-auto">
@@ -678,7 +704,12 @@ function CondutaPanel({
 
       {step === "exames" && (
         <>
-          <PanelHeader title="Exames" subtitle="Solicite os exames necessários" onClose={onClose} />
+          <PanelHeader
+            title="Exames"
+            subtitle="Solicite os exames necessários"
+            onClose={onClose}
+            onBack={onVoltar}
+          />
           <div className="flex flex-col gap-3 px-6">
             {exames.map((exame) => (
               <button
@@ -701,6 +732,7 @@ function CondutaPanel({
             title="Conduta"
             subtitle="Escolha a conduta que julgar ideal"
             onClose={onClose}
+            onBack={onVoltar}
           />
           <div className="flex flex-1 flex-col px-6">
             <Tabs
