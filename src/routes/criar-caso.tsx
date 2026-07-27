@@ -1987,12 +1987,15 @@ function CriarCaso() {
               O caso vai passar por análise e, se aprovado, será montado. Você será notificado por e-mail quando estiver pronto.
             </p>
             <div className="flex items-center justify-center">
-              <Link
-                to="/"
-                className="inline-flex items-center h-10 px-5 rounded bg-[var(--brand)] text-white text-sm font-medium hover:opacity-90"
+              <button
+                onClick={() => {
+                  setBuildStatus("idle");
+                  setCurrent(0);
+                }}
+                className="inline-flex items-center h-10 px-5 rounded bg-[var(--brand)] text-white text-sm font-medium hover:opacity-90 cursor-pointer"
               >
-                Ir para o painel
-              </Link>
+                Início
+              </button>
             </div>
           </div>
         </div>
