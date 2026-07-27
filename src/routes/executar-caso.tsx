@@ -863,7 +863,7 @@ function ReviewModal({ review, onClose }: { review: ReviewState; onClose: () => 
           <button
             type="button"
             onClick={onClose}
-            className="h-10 cursor-pointer rounded-full bg-red-600 px-6 text-sm font-medium text-white transition-colors hover:bg-red-700"
+            className="h-10 cursor-pointer rounded-full bg-[#B7131E] px-6 text-sm font-medium text-white transition-opacity hover:opacity-90"
           >
             Retornar
           </button>
@@ -874,7 +874,7 @@ function ReviewModal({ review, onClose }: { review: ReviewState; onClose: () => 
                 review.onProsseguir?.();
                 onClose();
               }}
-              className="h-10 cursor-pointer rounded-full bg-[var(--brand)] px-6 text-sm font-medium text-white transition-opacity hover:opacity-90"
+              className="h-10 cursor-pointer rounded-full bg-[#036BB2] px-6 text-sm font-medium text-white transition-opacity hover:opacity-90"
             >
               Prosseguir
             </button>
