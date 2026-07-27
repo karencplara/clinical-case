@@ -111,9 +111,6 @@ const diagnosisOptions = [
   "Outro",
 ];
 
-// Hipóteses diagnósticas incorretas, porém plausíveis para o caso de lesão
-// ligamentar medial do joelho — usadas pelo botão de IA de cada input de
-// "Hipótese incorreta" para sortear uma alternativa da mesma área clínica.
 const hipoteseIncorretaBank: string[] = [
   "Lesão de menisco medial",
   "Ruptura do ligamento cruzado anterior",
@@ -122,8 +119,6 @@ const hipoteseIncorretaBank: string[] = [
   "Tendinite patelar",
 ];
 
-// Exames sem indicação para investigar uma lesão ligamentar medial do
-// joelho — usados pelo botão de IA de cada input de "exame inadequado".
 const examesInadequadosBank: string[] = [
   "Endoscopia digestiva alta",
   "Ecocardiograma transtorácico",
@@ -937,7 +932,7 @@ function CriarCaso() {
   const [collapsedHipoteseSection, setCollapsedHipoteseSection] = useState(true);
   const [collapsedPrescricaoSection, setCollapsedPrescricaoSection] = useState(true);
 
-  type PrescricaoSlot = "correta" | number; // number = índice em incorretas
+  type PrescricaoSlot = "correta" | number;
   const getPrescricao = (slot: PrescricaoSlot): PrescricaoData =>
     slot === "correta" ? form.prescricao.correta : form.prescricao.incorretas[slot];
 
@@ -1782,7 +1777,7 @@ function CriarCaso() {
                       className="inline-flex items-center gap-2 h-9 px-4 rounded border border-[var(--brand)] text-sm font-medium text-[var(--brand)] hover:bg-[var(--brand)] hover:text-white transition-colors"
                     >
                       <Plus className="h-4 w-4" />
-                      Adicionar hipótese incorreta
+                      Adicionar hipótese inadequada
                     </button>
                   </>
                 )}
@@ -2051,17 +2046,22 @@ function DiagnosisCombobox({
 function Field({
   label,
   required,
+  badge,
   children,
 }: {
   label?: string;
   required?: boolean;
+  badge?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
     <label className="block">
       {label && (
-        <span className="block text-sm font-medium text-slate-700 mb-1.5">
-          {label} {required && <span className="text-[var(--brand)]">*</span>}
+        <span className="flex items-center gap-2 mb-1.5">
+          {badge}
+          <span className="text-sm font-medium text-slate-700">
+            {label} {required && <span className="text-[var(--brand)]">*</span>}
+          </span>
         </span>
       )}
       {children}
@@ -2069,8 +2069,24 @@ function Field({
   );
 }
 
+function CorretaBadge({ correct }: { correct: boolean }) {
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center h-6 px-2 rounded-full border text-[11px] font-medium shrink-0",
+        correct
+          ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+          : "bg-rose-50 text-rose-700 border-rose-200",
+      )}
+    >
+      {correct ? "Correta" : "Incorreta"}
+    </span>
+  );
+}
+
 function ExamListEditor({
   label,
+  badge,
   values,
   placeholder,
   addLabel,
@@ -2081,6 +2097,7 @@ function ExamListEditor({
   generatingIndex,
 }: {
   label: string;
+  badge?: React.ReactNode;
   values: string[];
   placeholder: string;
   addLabel: string;
@@ -2092,7 +2109,10 @@ function ExamListEditor({
 }) {
   return (
     <div className="space-y-2.5">
-      <span className="block text-xs font-medium text-slate-500">{label}</span>
+      <span className="flex items-center gap-2">
+        {badge}
+        <span className="text-xs font-medium text-slate-500">{label}</span>
+      </span>
       {values.map((v, i) => (
         <div key={i} className="flex gap-2">
           <div className="relative flex-1">
@@ -2191,7 +2211,7 @@ function HipoteseCard({
     >
       <div className="flex items-start gap-2">
         <div className="flex-1">
-          <Field label={title} required={accent}>
+          <Field label={title} required={accent} badge={<CorretaBadge correct={!!accent} />}>
             <div className="relative">
               <input
                 type="text"
@@ -2244,6 +2264,7 @@ function HipoteseCard({
           {examesCorretos && (
             <ExamListEditor
               label="Exames adequados"
+              badge={<CorretaBadge correct />}
               placeholder="Ex.: ECG de 12 derivações"
               addLabel="Adicionar exame adequado"
               {...examesCorretos}
@@ -2252,8 +2273,9 @@ function HipoteseCard({
           {examesIncorretos && (
             <ExamListEditor
               label="Exames inadequados"
+              badge={<CorretaBadge correct={false} />}
               placeholder="Ex.: Alternativa não indicada"
-              addLabel="Adicionar exame incorreto"
+              addLabel="Adicionar exame inadequado"
               {...examesIncorretos}
             />
           )}
