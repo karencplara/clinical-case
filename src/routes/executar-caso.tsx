@@ -199,6 +199,7 @@ function ExecutarCaso() {
   const [jerkDone, setJerkDone] = useState(false);
   const [condutaStep, setCondutaStep] = useState<"hipotese" | "exames" | "conduta">("hipotese");
   const [hipotese, setHipotese] = useState<string | null>(null);
+  const [selectedExame, setSelectedExame] = useState<string | null>(null);
   const [condutaTab, setCondutaTab] = useState(condutaOpcoes[0].id);
   const [reviewModal, setReviewModal] = useState<ReviewState>(null);
 
@@ -235,6 +236,7 @@ function ExecutarCaso() {
   };
 
   const handleSelectExame = (exame: (typeof exames)[number]) => {
+    setSelectedExame(exame.id);
     setReviewModal({
       correct: exame.correct,
       correctTitle: "Solicitação adequada",
@@ -246,8 +248,14 @@ function ExecutarCaso() {
 
   const handleVoltarConduta = () => {
     setCondutaStep((current) => {
-      if (current === "conduta") return "exames";
-      if (current === "exames") return "hipotese";
+      if (current === "conduta") {
+        setSelectedExame(null);
+        return "exames";
+      }
+      if (current === "exames") {
+        setHipotese(null);
+        return "hipotese";
+      }
       return current;
     });
   };
@@ -371,6 +379,7 @@ function ExecutarCaso() {
             step={condutaStep}
             hipotese={hipotese}
             onSelectHipotese={handleSelectHipotese}
+            selectedExame={selectedExame}
             onSelectExame={handleSelectExame}
             condutaTab={condutaTab}
             onCondutaTabChange={setCondutaTab}
@@ -644,6 +653,7 @@ function CondutaPanel({
   step,
   hipotese,
   onSelectHipotese,
+  selectedExame,
   onSelectExame,
   condutaTab,
   onCondutaTabChange,
@@ -654,6 +664,7 @@ function CondutaPanel({
   step: "hipotese" | "exames" | "conduta";
   hipotese: string | null;
   onSelectHipotese: (h: (typeof hipoteses)[number]) => void;
+  selectedExame: string | null;
   onSelectExame: (exame: (typeof exames)[number]) => void;
   condutaTab: string;
   onCondutaTabChange: (id: string) => void;
@@ -711,17 +722,34 @@ function CondutaPanel({
             onBack={onVoltar}
           />
           <div className="flex flex-col gap-3 px-6">
-            {exames.map((exame) => (
-              <button
-                key={exame.id}
-                type="button"
-                onClick={() => onSelectExame(exame)}
-                className="flex cursor-pointer items-center gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3 text-left text-sm font-medium text-slate-800 transition-colors hover:border-slate-300"
-              >
-                <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border border-slate-300" />
-                {exame.label}
-              </button>
-            ))}
+            {exames.map((exame) => {
+              const selected = selectedExame === exame.id;
+              return (
+                <button
+                  key={exame.id}
+                  type="button"
+                  onClick={() => onSelectExame(exame)}
+                  className={cn(
+                    "flex cursor-pointer items-center gap-3 rounded-lg border bg-white px-4 py-3 text-left text-sm font-medium text-slate-800 transition-colors",
+                    selected
+                      ? "border-[var(--brand)] ring-1 ring-[var(--brand)]"
+                      : "border-slate-200 hover:border-slate-300",
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border",
+                      selected
+                        ? "border-[var(--brand)] bg-[var(--brand)] text-white"
+                        : "border-slate-300",
+                    )}
+                  >
+                    {selected && <Check className="h-3 w-3" />}
+                  </span>
+                  {exame.label}
+                </button>
+              );
+            })}
           </div>
         </>
       )}
@@ -750,8 +778,8 @@ function CondutaPanel({
               {condutaOpcoes.map((opcao) => (
                 <TabsContent key={opcao.id} value={opcao.id}>
                   <div className="rounded-lg bg-white p-5 text-sm text-slate-800">
-                    <p>Paciente: Alexandre de S.</p>
-                    <p>Idade: 30 anos</p>
+                    <p>Paciente: Fernando da Silva</p>
+                    <p>Idade: 25 anos</p>
                     <div className="my-4 border-t border-slate-200" />
                     <p className="text-center font-semibold">Prescrição</p>
                     <div className="mt-4 space-y-3">
@@ -835,7 +863,7 @@ function ReviewModal({ review, onClose }: { review: ReviewState; onClose: () => 
           <button
             type="button"
             onClick={onClose}
-            className="h-10 cursor-pointer rounded-full bg-red-600 px-6 text-sm font-medium text-white transition-colors hover:bg-red-700"
+            className="h-10 cursor-pointer rounded-full bg-[#B7131E] px-6 text-sm font-medium text-white transition-opacity hover:opacity-90"
           >
             Retornar
           </button>
@@ -846,7 +874,7 @@ function ReviewModal({ review, onClose }: { review: ReviewState; onClose: () => 
                 review.onProsseguir?.();
                 onClose();
               }}
-              className="h-10 cursor-pointer rounded-full bg-[var(--brand)] px-6 text-sm font-medium text-white transition-opacity hover:opacity-90"
+              className="h-10 cursor-pointer rounded-full bg-[#036BB2] px-6 text-sm font-medium text-white transition-opacity hover:opacity-90"
             >
               Prosseguir
             </button>
