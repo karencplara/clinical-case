@@ -778,8 +778,8 @@ function CondutaPanel({
               {condutaOpcoes.map((opcao) => (
                 <TabsContent key={opcao.id} value={opcao.id}>
                   <div className="rounded-lg bg-white p-5 text-sm text-slate-800">
-                    <p>Paciente: Fernando</p>
-                    <p>Idade: 26 anos</p>
+                    <p>Paciente: Fernando da Silva</p>
+                    <p>Idade: 25 anos</p>
                     <div className="my-4 border-t border-slate-200" />
                     <p className="text-center font-semibold">Prescrição</p>
                     <div className="mt-4 space-y-3">
