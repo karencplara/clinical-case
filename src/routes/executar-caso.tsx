@@ -36,6 +36,7 @@ import olaDoutorVideo from "@/assets/videos/videos-caso-clinico/01-ola_doutor.mp
 import foiJogandoFutebolVideo from "@/assets/videos/videos-caso-clinico/02-foi_jogando_futebol.mp4";
 import faz2DiasVideo from "@/assets/videos/videos-caso-clinico/03-faz_2_dias.mp4";
 import estaInchadoVideo from "@/assets/videos/videos-caso-clinico/04-esta_inchado.mp4";
+import okDoutorVideo from "@/assets/videos/videos-caso-clinico/05-ok_doutor.mp4";
 import exameFisicoVideo from "@/assets/videos/exame-fisico.mp4";
 import simVideo from "@/assets/videos/videos-caso-clinico/sim.mp4";
 import naoVideo from "@/assets/videos/videos-caso-clinico/nao.mp4";
@@ -266,7 +267,13 @@ function ExecutarCaso() {
       correctTitle: "Conduta adequada",
       incorrectTitle: "Reveja sua conduta",
       description: opcao.message,
-      onProsseguir: opcao.correct ? () => setActivePanel(null) : undefined,
+      onProsseguir: opcao.correct
+        ? () => {
+            setActivePanel(null);
+            setPausedPanel(null);
+            setPlayer((p) => ({ src: okDoutorVideo, nonce: p.nonce + 1 }));
+          }
+        : undefined,
     });
   };
 
