@@ -630,7 +630,7 @@ function CriarCaso() {
       correta: {
         ...emptyHipoteseCorreta(),
         texto: "Lesão do ligamento colateral medial",
-        examesCorretos: ["Radiografia de joelho"],
+        examesCorretos: ["Ressonância magnética de joelho"],
       },
       incorretas: [emptyHipoteseIncorreta()] as HipoteseIncorreta[],
     },
@@ -2178,7 +2178,7 @@ function ExamListEditor({
                     type="button"
                     onClick={() => onGenerateItem(i)}
                     disabled={!!generatingIndex?.[i]}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 inline-flex items-center justify-center h-6 w-6 rounded-full text-[var(--brand)] hover:bg-sky-50 transition-colors disabled:cursor-wait"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 inline-flex items-center justify-center h-6 w-6 rounded-full text-[var(--brand)] cursor-pointer hover:bg-sky-50 transition-colors disabled:cursor-wait"
                   >
                     <Sparkles
                       className={cn("h-4 w-4", generatingIndex?.[i] && "animate-pulse")}
@@ -2275,7 +2275,7 @@ function HipoteseCard({
                       type="button"
                       onClick={onGenerateTexto}
                       disabled={generatingTexto}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 inline-flex items-center justify-center h-6 w-6 rounded-full text-[var(--brand)] hover:bg-sky-50 transition-colors disabled:cursor-wait"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 inline-flex items-center justify-center h-6 w-6 rounded-full text-[var(--brand)] cursor-pointer hover:bg-sky-50 transition-colors disabled:cursor-wait"
                     >
                       <Sparkles className={cn("h-4 w-4", generatingTexto && "animate-pulse")} />
                     </button>
